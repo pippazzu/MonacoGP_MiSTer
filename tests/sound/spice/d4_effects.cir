@@ -1,0 +1,118 @@
+* Sound sheet D-4/7: the S2688 noise amplifier, the explosion (two noise
+* band-pass filters, MC3340 attenuators driven by 74123 envelopes, IC66 a),
+* the skid tone (triangle oscillator, noise, 555) and the EXTEND beep;
+* pin-wired from docs/trace/SOUND_D4_TRACE.md (with its 1 November check).
+* Reference for the Verilog model; not used by the core.
+*
+* Sources the includer defines (0/5 V logic unless stated):
+*   noise   the S2688 output itself (IC62 pin 3), 3.0 / 10.5 V
+*   q61a, q61b  the 74123 outputs IC61 pin 13 and pin 5 (their timing is
+*           digital: the includer makes the pulses)
+*   skid_en the 7432 pin 6 output (the 555's RES)
+*   excp    pad 14 EX.CP as driven (0.2 / 5.0 V with R425's pull-up)
+* The 6 V reference (made on D-5/7) is ideal. Outputs: the currents into the
+* mixer's virtual ground at 6 V through R401 (explosion), R402 (EXTEND CP)
+* and R403 (skid), measured by the zero-volt sources Vm401, Vm402, Vm403.
+.include opamps.lib
+.include parts.lib
+.include mc3340.lib
+.include ne555.lib
+V12 v12 0 12
+V5  vcc 0 5
+V6  v6 0 6
+* ---- noise amplifier IC63 c (9 -, 10 +, 8 out)
+C79 noise n79 1u
+R361 n79 i63m9 150k
+R362 i63m9 namp 51k
+XIC63c v6 i63m9 namp v12 0 LM324
+* ---- upper band-pass IC63 b (5 +, 6 -, 7 out), about 540 Hz
+C93 namp n93 4.7u
+R395 n93 bpux 4.7k
+R396 bpux 0 27k
+C95 bpux i63m6 0.01u
+C96 bpux bpu 0.01u
+R391 i63m6 bpu 220k
+XIC63b v6 i63m6 bpu v12 0 LM324
+* ---- lower band-pass IC63 a (3 +, 2 -, 1 out), about 130 Hz
+C92 namp n92 4.7u
+R388 n92 bplx 4.7k
+R389 bplx 0 8.2k
+C91 bplx i63m2 0.047u
+C90 bplx bpl 0.047u
+R387 i63m2 bpl 220k
+XIC63a v6 i63m2 bpl v12 0 LM324
+* ---- envelopes: 74123 Q, R377/R376 330 ohm pull-ups, D30/D31 into 10 uF
+R377 vcc q1 330
+XQ61a q61a q1 0 OCOUT
+D30 q1 envu DMA150
+C77 envu 0 10u
+R374 envu 0 330k
+R376 vcc q2 330
+XQ61b q61b q2 0 OCOUT
+D31 q2 envl DMA150
+C78 envl 0 10u
+R375 envl 0 1meg
+* followers IC66 d, IC64 d; inverters IC66 c, IC64 c around R368/R366
+XIC66d envu fu fu v12 0 LM324
+XIC64d envl fl fl v12 0 LM324
+R368 v12 vb 8.2k
+R366 vb 0 3.9k
+R367 fu i66m9 10k
+R369 i66m9 conu 10k
+XIC66c vb i66m9 conu v12 0 LM324
+R363 fl i64m9 10k
+R364 i64m9 conl 10k
+XIC64c vb i64m9 conl v12 0 LM324
+* ---- MC3340 chains (supply 12 V; pin 6 680 pF)
+C82 bpu n82 1u
+R397 n82 mciu 33k
+XIC65 mciu conu 0 rollu mcou v12 MC3340
+C65r rollu 0 680p
+* 10 pF on each MC3340 output (pin and wiring; the transistor-level model
+* has no junction capacitance, and ngspice's step collapsed there without)
+C65o mcou 0 10p
+C83 mcou n83 1u
+R365 n83 i66m2 150k
+C98 bpl n98 1u
+R398 n98 mcil 33k
+XIC71 mcil conl 0 rolll mcol v12 MC3340
+C71r rolll 0 680p
+C71o mcol 0 10p
+C99 mcol n99 1u
+R397b n99 i66m2 100k
+* ---- IC66 a (2 -, 3 +, 1 out); R423 2M only with DIP SW. 2 contact 2-15
+* closed (not fitted here: the switch is taken open)
+R400 i66m2 expo 1meg
+XIC66a v6 i66m2 expo v12 0 LM324
+C100 expo n100 10u
+R401 n100 m401 220k
+Vm401 m401 v6 0
+* ---- skid: triangle oscillator IC64 b, follower IC64 a
+R392 v6 i64p5 51k
+R393 tri_o i64p5 100k
+R394 tri_o c94 6.8k
+C94 c94 0 10u
+XIC64b i64p5 c94 tri_o v12 0 LM324
+XIC64a c94 tri tri v12 0 LM324
+* IC63 d: noise (C80, R385) and the triangle (R390) into R386; out to CON
+C80 noise n80 1u
+R385 n80 i63m13 100k
+R390 tri i63m13 68k
+R386 i63m13 o63d 10k
+XIC63d v6 i63m13 o63d v12 0 LM324
+C81 o63d ctl555 33u
+* 555 on 5 V
+R383 vcc dis 47k
+R384 dis thtr 47k
+C89 thtr 0 4700p
+X555 0 thtr out555 skid_en ctl555 thtr dis vcc NE555
+R405 out555 n404 10k
+R404 n404 0 10k
+C101 n404 n101 10u
+R403 n101 m403 220k
+Vm403 m403 v6 0
+* ---- EXTEND CP: pad 14 through 2.2 uF and R402
+C2u2 excp n402 2.2u
+R402 n402 m402 220k
+Vm402 m402 v6 0
+.options method=gear

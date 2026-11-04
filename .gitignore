@@ -1,0 +1,11 @@
+build/
+__pycache__/
+*.vcd
+*.fst
+*.rbf
+*.rom
+*.hex
+*.bin
+log/
+modules
+cores/monacogp/mister/

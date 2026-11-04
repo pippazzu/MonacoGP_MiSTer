@@ -1,0 +1,34 @@
+* Behavioural NE555 timer (bipolar) for the Monaco GP sound references.
+* Typical data-sheet behaviour, not a measured part: the internal 5K/5K/5K
+* divider from vcc sets CONTROL (2/3 vcc) and the trigger level (half of
+* CONTROL); the threshold comparator resets and the trigger comparator sets
+* the latch; RESET below 0.7 V resets it and dominates. OUTPUT is vcc - 1.7 V
+* high (3.3 V at 5 V, TI SLFS022 typical) and 0.05 V low; DISCHARGE sinks
+* through 10 ohm while the output is low. Uses ngspice's XSPICE digital
+* models.
+* Pins: gnd tr out res ctl th dis vcc (1..8)
+.subckt NE555 gnd tr out res ctl th dis vcc
+R1 vcc ctl 5k
+R2 ctl tl 5k
+R3 tl gnd 5k
+Bthr thr_d gnd V=V(th)-V(ctl)
+Btrg trg_d gnd V=V(tl)-V(tr)
+Bres res_d gnd V=0.7-V(res)
+Bone one_a gnd V=1
+Aadc [thr_d trg_d res_d one_a] [thr trg rst one] adc555
+.model adc555 adc_bridge(in_low=-1e-12 in_high=1e-12)
+Aor [thr rst] rr or555
+.model or555 d_or(rise_delay=1e-9 fall_delay=1e-9)
+* trigger only while not in reset
+Arn rst rstn inv555
+.model inv555 d_inverter(rise_delay=1e-9 fall_delay=1e-9)
+Aand [trg rstn] ss and555
+.model and555 d_and(rise_delay=1e-9 fall_delay=1e-9)
+Alat ss rr one NULL NULL q qb lat555
+.model lat555 d_srlatch(sr_delay=1e-9 enable_delay=1e-9 set_delay=1e-9 reset_delay=1e-9 ic=0 sr_value=1 rise_delay=1e-9 fall_delay=1e-9)
+Adac [q qb] [qo qbo] dac555
+.model dac555 dac_bridge(out_low=0 out_high=1 t_rise=1e-8 t_fall=1e-8)
+Bout out gnd V=0.05+(V(vcc,gnd)-1.75)*V(qo)
+Sdis dis gnd qbo gnd swdis
+.model swdis SW(VT=0.5 VH=0.05 RON=10 ROFF=1e10)
+.ends NE555

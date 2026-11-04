@@ -1,0 +1,123 @@
+* Sound sheet D-3/7, MY CAR SOUND engine oscillator, pin-wired from
+* docs/trace/SOUND_D3_TRACE.md (consolidated 1 November 2026, IC48 per the
+* scan review). Reference for the Verilog model; not used by the core.
+*
+* Logic inputs are 0/5 V sources on nodes acc_a, acc_b, acc_c, acc_d
+* (pads E, 5, F, 6), shift_a, sound_on; the includer defines them. The 6 V
+* reference (made on D-5/7) is an ideal source here. Output: node mix_out,
+* loaded as on D-4/7 by R411 100K into the mixer's virtual ground at 6 V.
+.include opamps.lib
+.include parts.lib
+.include mc3340.lib
+V12 v12 0 12
+V5  vcc 0 5
+V6  v6 0 6
+* ---- accelerator DAC. Pads pulled up to Vcc (470 ohm), non-inverting
+* open-collector buffers IC57/IC48 pulled up to 12 V (1K), weights to the
+* DAC node, R298 390K from 12 V.
+R420 vcc acc_a 470
+R422 vcc acc_b 470
+R421 vcc acc_c 470
+R418 vcc acc_d 470
+XIC57a acc_a ba 0 OCOUT
+XIC57b acc_b bb 0 OCOUT
+XIC48b acc_c bc 0 OCOUT
+XIC48c acc_d bd 0 OCOUT
+R316 v12 ba 1k
+R315 v12 bb 1k
+R314 v12 bc 1k
+R313 v12 bd 1k
+R297 ba dac 390k
+R296 bb dac 220k
+R295 bc dac 100k
+R294 bd dac 51k
+R298 v12 dac 390k
+* IC47 13->12 inverts pad D (open collector, R310 4.7K to 12 V): IC54 ctl 12
+Einv47 d_n 0 vol='V(acc_d) > 2.5 ? 0 : 5'
+XIC47f d_n ctl12 0 OCOUT
+R310 v12 ctl12 4.7k
+* ---- follower, lag and gear scaling
+XIC49c dac f8 f8 v12 0 LM324
+R299 f8 d21k 33k
+D21 lag d21k DMA150
+R300 f8 lag 150k
+XIC54d f8 s10 ctl12 0 SW4016
+R302 s10 lag 68k
+C62 lag 0 47u
+XIC50d lag f14 f14 v12 0 LM324
+R303 f14 n10 220k
+R301 n10 shinv 470k
+Einvsh sh_n 0 vol='V(shift_a) > 2.5 ? 0 : 5'
+XSHINV sh_n shinv 0 OCOUT
+R419 vcc shift_a 470
+XIC50c n10 cv cv v12 0 LM324
+XIC49d cv tach tach v12 0 LM324
+XIC51d cv t51 t51 v12 0 LM324
+* ---- cell 1 (IC51 a/b, TR18)
+R334 cv i51m 150k
+R335 cv i51p 51k
+R336 i51p 0 51k
+C67  i51m o51a 6800p
+C113 i51m o51a 470p
+XIC51a i51p i51m o51a v12 0 LM324
+R344 i51m tr18c 68k
+Q18 tr18c tr18b 0 Q2SC458
+R337 tr18b 0 2.2k
+XIC51b c51p o51a o51b v12 0 LM324
+R339a v6 c51p 51k
+R339b o51b c51p 100k
+R340 o51b d26a 10k
+D26 d26a tr18b DMA150
+* ---- cell 2 (IC50 a/b, unlabelled C458)
+R327 cv i50m 270k
+R328 cv i50p 51k
+R330 i50p 0 51k
+C65  i50m o50a 4700p
+XIC50a i50p i50m o50a v12 0 LM324
+R326 i50m tr2c 120k
+Q2 tr2c tr2b 0 Q2SC458
+R329 tr2b 0 2.2k
+XIC50b c50p o50a o50b v12 0 LM324
+R331 v6 c50p 51k
+R332 o50b c50p 100k
+R333 o50b d25a 10k
+D25 d25a tr2b DMA150
+* ---- cell 3 (IC49 a/b, TR16)
+R318 cv i49m 220k
+R319 cv i49p 51k
+R320 i49p 0 51k
+C61  i49m o49a 0.022u
+XIC49a i49p i49m o49a v12 0 LM324
+R317 i49m tr16c 100k
+Q16 tr16c tr16b 0 Q2SC458
+R321 tr16b 0 2.2k
+XIC49b c49p o49a o49b v12 0 LM324
+R322 v6 c49p 51k
+R323 o49b c49p 100k
+R324 o49b d23a 10k
+D23 d23a tr16b DMA150
+* ---- audio bus: cells 2 and 3 through D24/D22, R325, C64 to IC52 IN
+D24 o50a bus DMA150
+D22 o49a bus DMA150
+R325 bus 0 10k
+C64 bus mcin 10u
+* ---- attenuation control: C66/R304 into IC51 c, clamp D27/D28
+C66 o51a c66r 22u
+R304 c66r i51n9 10k
+R306 con i51n9 10k
+R305 t51 i51p10 10k
+D27 i51p10 clmp DMA150
+D28 clmp i51p10 DMA150
+R341 v12 clmp 680
+R342 clmp 0 330
+XIC51c i51p10 i51n9 con v12 0 LM324
+* ---- MC3340 IC52 and output switch IC54 4<->3, ctl 5
+XIC52 mcin con 0 mcroll mcout v12 MC3340
+R417 vcc sound_on 470
+XIC57f sound_on ctl5 0 OCOUT
+R357 v12 ctl5 4.7k
+XIC54b mcout swo ctl5 0 SW4016
+R356 v12 swo 51k
+R355 swo 0 51k
+C72 swo mixr 22u
+R411 mixr v6 100k

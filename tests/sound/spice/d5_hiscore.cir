@@ -1,0 +1,164 @@
+* Sound sheet D-5/7, analog part: the vibrato oscillator (IC1 a/b), the two
+* note voltage summers (IC1 c/d) with their trimmer banks, the two sawtooth
+* oscillators (IC2/IC4/TR2 and IC3/IC5/TR3), the mixer IC15 c, the two
+* Sallen-Key filters (IC6 c/d), the envelope (D4, C14, IC6 a/b) and the
+* MC3340 IC7. Pin-wired from docs/trace/SOUND_D5_TRACE.md (with its
+* 1 and 2 November checks). Reference for the Verilog model; not used by
+* the core.
+*
+* The sequencer is digital; the includer makes its outputs (0/5 V logic):
+*   na, nb, nc  PROM IC21 bits A (pin 7), B (pin 6), C (pin 5) at the IC13
+*               7417 inputs; low grounds that note's branch in both banks
+*   nh          PROM bit H (pin 9) at the IC48 7407 input; low sinks R55
+*   q123        the 74123 Q (pin 13), a TTL output: 0.2 V / 3.4 V
+* Parameters the includer sets (.param):
+*   r10 r29     the hand-corrected R10 and the overwritten R29
+*   vr1..vr6    trimmer resistance in ohms (VR1/4 1K, VR2/3/6 2K, VR5 1K)
+*   r1 r23      the ADJ (select-on-test) resistors, drawn 1K
+* The 6 V reference (made on this sheet by R53/R54 and C6/C7) is ideal, as
+* in the other sheets' references. Output: the current into the D-4
+* mixer's 6 V virtual ground through R408 39K, measured by Vm408.
+.include opamps.lib
+.include parts.lib
+.include mc3340.lib
+V12 v12 0 12
+V5  vcc 0 5
+V6  v6 0 6
+*
+* ---- vibrato: IC1 a integrator (2 -, 3 +, 1), IC1 b Schmitt (6 -, 5 +, 7)
+R13 v12 n13 15k
+R12 n13 0 47k
+R14 n13 i1m2 100k
+R15 n13 i1p3 51k
+R16 i1p3 0 51k
+C3 i1m2 lfo 0.47u
+XIC1a i1p3 i1m2 lfo v12 0 LM324
+R5 i1m2 c1 51k
+R17 v6 i1p5 100k
+R19 i1p5 o1_7 100k
+XIC1b i1p5 lfo o1_7 v12 0 LM324
+R18 o1_7 n18 10k
+D1 n18 b1 DMA150
+R11 b1 0 2.2k
+Q1 c1 b1 0 Q2SC458
+*
+* ---- note reference: R20 33K / R10 to IC1 pins 10 and 12
+R20 v12 ref 33k
+R10 ref 0 {r10}
+*
+* ---- upper bank (R23 ADJ 1K) -> R4 39K -> IC1 c (9 -, 10 +, 8 out)
+R23 v12 comu {r23}
+RVR4 comu na_o {vr4+0.01}
+RVR5 comu n41 {vr5+0.01}
+R41 n41 nb_o 220
+RVR6 comu n45 {vr6+0.01}
+R45 n45 nc_o 680
+XIC13a na na_o 0 OCOUT
+XIC13b nb nb_o 0 OCOUT
+XIC13c nc nc_o 0 OCOUT
+R4 comu i1m9 39k
+R9 i1m9 cvu 10k
+C2 lfo n2 4.7u
+R8 n2 i1m9 1meg
+XIC1c ref i1m9 cvu v12 0 LM324
+*
+* ---- lower bank (R1 ADJ 1K) -> R3 39K -> IC1 d (13 -, 12 +, 14 out)
+R1 v12 coml {r1}
+RVR1 coml na_l {vr1+0.01}
+RVR2 coml n2b {vr2+0.01}
+R2 n2b nb_l 220
+RVR3 coml n21 {vr3+0.01}
+R21 n21 nc_l 680
+XIC13d na na_l 0 OCOUT
+XIC13e nb nb_l 0 OCOUT
+XIC13f nc nc_l 0 OCOUT
+R3 coml i1m13 39k
+R6 i1m13 cvl 10k
+C1 lfo n1 4.7u
+R7 n1 i1m13 1meg
+XIC1d ref i1m13 cvl v12 0 LM324
+*
+* ---- upper sawtooth: IC2 integrator (2 -, 3 +, 6), IC4 Schmitt, TR2 reset
+R26 cvu i2m 51k
+R27 cvu i2p 51k
+R29 i2p 0 {r29}
+C4 i2m sawu 0.022u
+XIC2 i2p i2m sawu v12 0 TL081
+R25 o4 i4p 100k
+R32 i4p v6 47k
+XIC4 i4p sawu o4 v12 0 TL081
+R24 o4 n24 10k
+D2 n24 b2 DMA150
+R30 b2 0 2.2k
+Q2 c2 b2 0 Q2SC458
+R22 i2m c2 560
+*
+* ---- lower sawtooth: IC3 integrator, IC5 Schmitt, TR3 reset
+R35 cvl i3m 51k
+R36 cvl i3p 51k
+R37 i3p 0 51k
+C5 i3m sawl 0.022u
+XIC3 i3p i3m sawl v12 0 TL081
+R34 o5 i5p 100k
+R40 i5p v6 47k
+XIC5 i5p sawl o5 v12 0 TL081
+R33 o5 n33 10k
+D3 n33 b3 DMA150
+R38 b3 0 2.2k
+Q3 c3 b3 0 Q2SC458
+R28 i3m c3 560
+*
+* ---- mixer IC15 c (9 -, 10 +, 8): R31 100K upper, R39 220K lower
+R31 sawu i15m 100k
+R39 sawl i15m 220k
+R115 i15m mix 100k
+XIC15c v6 i15m mix v12 0 LM324
+*
+* ---- low-pass IC6 c (10 +, 9 -, 8 follower): R43, R46 4.7K, C13, C12
+R43 mix n43 4.7k
+R46 n43 i6p10 4.7k
+C13 n43 lp 0.033u
+C12 i6p10 0 6800p
+XIC6c i6p10 lp lp v12 0 LM324
+*
+* ---- high-pass IC6 d (12 +, 13 -, 14 follower): C11, C10 6800P, R44
+* 12K feedback, R42 22K to 6 V
+C11 lp n11 6800p
+C10 n11 i6p12 6800p
+R44 n11 hp 12k
+R42 i6p12 v6 22k
+XIC6d i6p12 hp hp v12 0 LM324
+*
+* ---- envelope: 74123 Q -> D4 -> R49 1K -> C14 6.8 uF / R52 470K, R55 68K
+* to the IC48 7407 (PROM H); IC6 a follower (3 +, 2 -, 1), IC6 b
+* inverter (6 -, 5 +, 7) around R48 33K / R57 15K, 5 V * 5.1K / (2.7K +
+* 5.1K) with C9 47 uF at pin 5
+Rq q123 nq 100
+D4 nq n49 DMA150
+R49 n49 env 1k
+C14 env 0 6.8u
+R52 env 0 470k
+R55 env nh_o 68k
+XIC48 nh nh_o 0 OCOUT
+XIC6a env envf envf v12 0 LM324
+R50 vcc n50 2.7k
+R47 n50 0 5.1k
+C9 n50 0 47u
+R48 envf i6m6 33k
+R57 i6m6 con 15k
+XIC6b n50 i6m6 con v12 0 LM324
+*
+* ---- MC3340 IC7: IN 1 through C8 1 uF, CON 2, pin 6 C100 680 pF;
+* OUT 7 -> C15 2.2 uF -> HI SCORE SOUND OUT -> R408 39K (D-4)
+C8 hp n8 1u
+XIC7 n8 con 0 roll7 mco v12 MC3340
+C100 roll7 0 680p
+* 10 pF on the output, as for the other MC3340s (see d4_effects.cir)
+C7o mco 0 10p
+C15 mco n15 2.2u
+R408 n15 n408 39k
+Vm408 n408 v6 0
+* Gear integration, as d4_effects.cir: with the default trapezoidal
+* method the first run (2 November) stalled at 0.9488 s, where note B
+* gives way to C while the 74123 fires, and made no progress for hours.
+.options method=gear

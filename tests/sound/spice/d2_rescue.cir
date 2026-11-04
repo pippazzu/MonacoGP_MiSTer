@@ -1,0 +1,173 @@
+* Sound sheet D-2/7 (RESCUE CAR siren and BACK SOUND), pin-wired from
+* docs/trace/SOUND_D2_TRACE.md (its 31 October review and the 2 November
+* check). Reference for the Verilog model; not used by the core.
+*
+* Sources the includer defines:
+*   resc   pad P, /RESCUE CP from sheet M (IC7, a TTL output: 0.2 / 3.4 V)
+*   bstb   the D-4 IC57 pin 6 open collector, as its logic level (0/5 V):
+*          low sinks BACK SOUND STB. (attract mute)
+*   bko    the other cars' back network (D-7 R220 / R217), as the voltage
+*          of an equivalent source behind 51K into IC40 pin 6 (a test
+*          signal: the D-6/D-7 model computes the real current)
+* The 6 V reference made on D-5/7 is ideal. Outputs: the current into the
+* D-4 mixer through R410 (FRONT RESCUE, Vm410) and through R424 (MIX AMP
+* BACK SOUND, with DIP SW. 2's contact closed, Vm424); pad R (BACK SOUND
+* OUT) into an assumed 10K amplifier input.
+.include opamps.lib
+.include parts.lib
+.include mc3340.lib
+.include ne555.lib
+* supplies ramp up over the first millisecond (power-on)
+V12 v12 0 PWL(0 0 1m 12)
+V5  vcc 0 PWL(0 0 1m 5)
+V6  v6 0 PWL(0 0 1m 6)
+*
+* ---- rescue enable: pad P, R278 4.7K pull-up, R280 2.2K, TR15
+R278 vcc resc 4.7k
+R280 resc t15b 2.2k
+Q15 t15c t15b 0 Q2SC458
+R243 v12 i42p3 10k
+R281 i42p3 t15c 10k
+*
+* ---- rear envelope (IC42): comparator, latch pair, integrator
+* comparator 9 -, 10 + -> 8 on the integrator's output against R249 8.2K /
+* R250 3.3K (3.44 V), R247 1K / R246 100K hysteresis
+R249 v12 n249 8.2k
+R250 n249 0 3.3k
+R247 n249 i42p10 1k
+R246 i42p10 o42_8 100k
+XIC42c i42p10 env_r o42_8 v12 0 LM324
+* latch: 13 -, 12 + -> 14 and 2 -, 3 + -> 1, cross-coupled through 1K,
+* 100K feedback each
+R248 o42_8 i42p12 10k
+R242 v12 i42p12 10k
+R241 o42_1 i42p13 1k
+R240 i42p13 o42_14 100k
+XIC42d i42p12 i42p13 o42_14 v12 0 LM324
+R245 o42_14 i42p2 1k
+R244 i42p2 o42_1 100k
+XIC42a i42p3 i42p2 o42_1 v12 0 LM324
+* steering from pin 1: D18 / R283 51K in, R282 82K / D17 out
+D18 o42_1 n18 DMA150
+R283 n18 i42p6 51k
+R282 i42p6 n17 82k
+D17 n17 o42_1 DMA150
+* integrator 6 -, 5 + -> 7: C53 + C54 33 uF back to back (16.5 uF)
+XIC42b v6 i42p6 env_r v12 0 LM324
+C5354 env_r i42p6 16.5u
+*
+* ---- front envelope (IC43, IC44)
+* IC43 13 -, 12 + -> 14: the rear envelope against R252 6.8K / R255 4.7K,
+* R254 1K / R253 100K
+R252 v12 n252 6.8k
+R255 n252 0 4.7k
+R254 n252 i43p12 1k
+R253 i43p12 o43_14 100k
+XIC43d i43p12 env_r o43_14 v12 0 LM324
+* C55 0.68 uF into node Q (R251 10K, D32 MA80 as an MA150), R284 10K into
+* the Schmitt IC43 3 +, 2 - (6 V) -> 1, R285 100K
+C55 o43_14 q 0.68u
+R251 q 0 10k
+D32 0 q DMA150
+R284 q i43p3 10k
+R285 i43p3 o43_1 100k
+XIC43a i43p3 v6 o43_1 v12 0 LM324
+* latch: 6 -, 5 + -> 7 and 9 -, 10 + -> 8; 5 from R287 / R286 10K on
+* IC43.1, 10 from R258 / R259 10K on IC44.14
+R287 v12 i43p5 10k
+R286 i43p5 o43_1 10k
+R288 o43_8 i43p6 1k
+R289 i43p6 o43_7 100k
+XIC43b i43p5 i43p6 o43_7 v12 0 LM324
+R258 v12 i43p10 10k
+R259 i43p10 o44_14 10k
+R257 o43_7 i43p9 1k
+R256 i43p9 o43_8 100k
+XIC43c i43p10 i43p9 o43_8 v12 0 LM324
+* steering from IC43.7: D20 / R291 10K in, R290 220K / D19 (MA80 as an
+* MA150) out
+D20 o43_7 n20 DMA150
+R291 n20 i44p2 10k
+R290 i44p2 n19 220k
+D19 n19 o43_7 DMA150
+* integrator IC44 2 -, 3 + -> 1: C56 + C57 47 uF back to back (23.5 uF)
+XIC44a v6 i44p2 env_f v12 0 LM324
+C5657 env_f i44p2 23.5u
+* IC44 13 -, 12 + -> 14: the front envelope against R264 8.2K (from 12 V,
+* the small "12V" at its top end) / R263 3.3K, R260 1K / R261 100K
+R264 v12 n264 8.2k
+R263 n264 0 3.3k
+R260 n264 i44p12 1k
+R261 i44p12 o44_14 100k
+XIC44d i44p12 env_f o44_14 v12 0 LM324
+*
+* ---- MC3340 controls: the 2.8 V rail (R239 8.2K + 680, R238 2.7K) and
+* the followers IC40 9,10 -> 8 (rear) and IC44 9,10 -> 8 (front)
+R239 v12 r28 8.88k
+R238 r28 0 2.7k
+R237 env_r i40p10 100k
+R236 r28 i40p10 51k
+XIC40c i40p10 con41 con41 v12 0 LM324
+R262 env_f i44p10 100k
+R265 r28 i44p10 51k
+XIC44c i44p10 con45 con45 v12 0 LM324
+*
+* ---- siren tone: 555 IC39 (12 V) keying the VCO IC40 a/d with TR16.
+* R231 680 ohm hangs on IC40 pin 13 (the - input, 2 November check), so
+* TR16 discharges C49 quickly: a sawtooth.
+R268 v12 d555 10k
+R269 d555 th555 680k
+C47 th555 0 0.68u
+C48 c555 0 0.01u
+X555 0 th555 o555 v12 c555 th555 d555 v12 NE555
+R230 w nw15 22k
+D15 nw15 o555 DMA150
+R233 v12 w 3.9k
+R235 w 0 12k
+R232 w i40p13 30k
+R234 w i40p12 51k
+R416 i40p12 0 51k
+R231 i40p13 t16c 680
+Q16 t16c t16b 0 Q2SC458
+R270 t16b 0 2.2k
+D16 n16 t16b DMA150
+R271 o40_1 n16 10k
+XIC40d i40p12 i40p13 tri v12 0 LM324
+C49 tri i40p13 0.033u
+R272 v6 i40p3 51k
+R273 i40p3 o40_1 100k
+XIC40a i40p3 tri o40_1 v12 0 LM324
+*
+* ---- MC3340s (12 V; pin 6 not drawn: left open; 10 pF on each output,
+* as on D-4)
+C51 tri mc41i 2.2u
+XIC41 mc41i con41 0 roll41 mc41o v12 MC3340
+C41o mc41o 0 10p
+C59 tri mc45i 1u
+XIC45 mc45i con45 0 roll45 mc45o v12 MC3340
+C45o mc45o 0 10p
+*
+* ---- back sound: IC41 (rear) and BACK OTHER CAR into IC40 b
+C52 mc41o n52 2.2u
+R276 n52 i40p6 18k
+Rbko bko i40p6 51k
+R277 i40p6 o40_7 22k
+XIC40b v6 i40p6 o40_7 v12 0 LM324
+C50 o40_7 n50 10u
+R274 n50 z 1k
+R279 z padr 1k
+Rampr padr 0 10k
+R275 z n275 50
+XQ57 bstb n275 0 OCOUT
+C114 z n114 2.2u
+R424 n114 vm424n 100k
+Vm424 vm424n v6 0
+*
+* ---- front: IC45 into IC44 b (gain -10), C60, R410 into the D-4 mixer
+C58 mc45o n58 2.2u
+R292 n58 i44p6 10k
+R293 i44p6 o44_7 100k
+XIC44b v6 i44p6 o44_7 v12 0 LM324
+C60 o44_7 n60 2.2u
+R410 n60 vm410n 220k
+Vm410 vm410n v6 0

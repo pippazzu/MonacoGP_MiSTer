@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<misterromdescription>
+  <name>Monaco GP</name>
+  <setname>monacogp</setname>
+  <rbf>MonacoGP</rbf>
+  <year>1979</year>
+  <manufacturer>Sega</manufacturer>
+  <category>Racing</category>
+  <rotation>vertical (cw)</rotation>
+  <buttons names="Accelerate,Gear,Scoreboard,Start,Coin" default="A,B,Y,Start,Select" />
+  <rom index="0" zip="monacogp.zip" md5="None">
+    <part name="pra125.ic59" crc="7a66ed4c" />
+    <part name="pra126.ic65" crc="5d7a8f12" />
+    <part name="pra131.ic71" crc="ff31eb01" />
+    <part name="pra127.ic77" crc="8ffdc2f0" />
+    <part name="pra128.ic84" crc="dde29dea" />
+    <part name="pra129.ic91" crc="7b18af26" />
+    <part name="pra130.ic98" crc="9ef1913b" />
+    <part name="pra132.ic111" crc="6b8ad9bc" />
+    <part name="prm39.ic105" crc="6acfa0da" />
+    <part name="prm38.ic115" crc="82dd0a0f" />
+    <part name="pra140.ic12" crc="48e9971b" />
+    <part name="pra141.ic17" crc="99934236" />
+    <part name="pra138.ic30" crc="058e53cf" />
+    <part name="pra139.ic51" crc="e8ba0794" />
+    <part name="pra133.ic64" crc="d50641d9" />
+    <part name="pra136.ic99" crc="ecc5d1a2" />
+    <part name="pra135.ic106" crc="986eda32" />
+    <part name="pra134.ic113" crc="8ebd50bb" />
+    <part name="pra137.ic120" crc="ddd9004e" />
+    <part name="prm40.ic21" crc="87d12d57" />
+  </rom>
+  <!-- core_mod: bit 0 vertical screen; bit 2 set: JTFRAME XORs it with
+       dip_flip (high while OSD Flip screen is Off) to choose the frame
+       buffer's direction, so set it turns the picture clockwise while the
+       flip is off, as the cabinet's monitor is turned -->
+  <rom index="1">
+    <part>05 80</part>
+  </rom>
+  <!-- The boards' setting switches (OSD "DIP Switches"), 0 = the default:
+       bit 0, sheet A's changeover switch; bit 8, DIP SW. 2's contact that
+       sends the back sound (D-2, R424) into the front speaker's mix;
+       bit 9, DIP SW. 2 contact 2-15 (R423, a louder explosion).
+       jtmonacogp_game.v reads them from dipsw. -->
+  <switches default="00,00" base="16" page_id="1" page_name="Switches">
+    <dip name="Coin, play" bits="0" ids="1 coin 1 play,1 coin 2 plays" />
+    <dip name="Back sound in front mix" bits="8" ids="On,Off" />
+    <dip name="Louder explosion" bits="9" ids="Off,On" />
+  </switches>
+  <nvram index="2" size="514" />
+</misterromdescription>

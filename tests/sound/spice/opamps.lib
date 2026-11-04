@@ -1,0 +1,49 @@
+* Behavioural op-amp and comparator models for the Monaco GP sound board
+* references. Single supply (vcc, gnd). Typical data-sheet figures, stated
+* per model; they are typical, not worst-case, values.
+*
+* Input stage: a transconductance limited by tanh to +-ISLEW into an
+* integrating capacitor, so slew = ISLEW/CINT, unity-gain bandwidth =
+* GM/(2 pi CINT), DC gain = GM*RINT (100 dB). A soft conductance holds the
+* integrator node 0.25 V beyond the output swing, so the model leaves
+* saturation without wind-up, after about 0.5 us (LM324), and its leakage
+* does not move a comparator's switching point. The output follows the node
+* within the swing limits through 50 ohm.
+*
+* LM324: 1.2 MHz unity gain, 0.5 V/us slew (TI SLOS066 typ); output 0.02 V
+* to vcc-1.5 V.
+.subckt LM324 inp inn out vcc gnd
+.param gm=1e-3 cint={gm/(2*3.14159265*1.2e6)} islew={0.5e6*cint}
+Gin gnd int value={islew*tanh(gm*(V(inp)-V(inn))/islew)}
+Cint int gnd {cint}
+Rint int mid 1e8
+Emid mid gnd vcc gnd 0.5
+Gclh int gnd value={0.05*(max(V(int)-V(vcc,gnd)+1.5-0.25,0)+0.01*ln(1+exp(-abs(V(int)-V(vcc,gnd)+1.5-0.25)/0.01)))}
+Gcll gnd int value={0.05*(max(0.02-0.25-V(int),0)+0.01*ln(1+exp(-abs(0.02-0.25-V(int))/0.01)))}
+Bout o1 gnd V={max(0.02,min(V(vcc,gnd)-1.5,V(int)))}
+Rout o1 out 50
+.ends LM324
+*
+* TL081 on a single supply: 3 MHz unity gain, 13 V/us slew (TI SLOS081
+* typ); output 1.5 V to vcc-hid (hid 1.5 V unless an instance sets it).
+.subckt TL081 inp inn out vcc gnd params: hid=1.5
+.param gm=1e-3 cint={gm/(2*3.14159265*3e6)} islew={13e6*cint}
+Gin gnd int value={islew*tanh(gm*(V(inp)-V(inn))/islew)}
+Cint int gnd {cint}
+Rint int mid 1e8
+Emid mid gnd vcc gnd 0.5
+Gclh int gnd value={0.05*(max(V(int)-V(vcc,gnd)+hid-0.25,0)+0.01*ln(1+exp(-abs(V(int)-V(vcc,gnd)+hid-0.25)/0.01)))}
+Gcll gnd int value={0.05*(max(1.5-0.25-V(int),0)+0.01*ln(1+exp(-abs(1.5-0.25-V(int))/0.01)))}
+Bout o1 gnd V={max(1.5,min(V(vcc,gnd)-hid,V(int)))}
+Rout o1 out 50
+.ends TL081
+*
+* LM339 comparator: open-collector output sinking to gnd, about 0.3 us
+* response, saturation about 0.1 V at a few mA.
+.subckt LM339 inp inn out gnd
+Bsw ctl gnd V={0.5+0.5*tanh((V(inn)-V(inp))*2000)}
+Rctl ctl c2 1k
+Cctl c2 gnd 0.3n
+Gsink out gnd value={V(c2)*16e-3*tanh(max(V(out),0)/0.1)}
+Roff out gnd 1e9
+.ends LM339

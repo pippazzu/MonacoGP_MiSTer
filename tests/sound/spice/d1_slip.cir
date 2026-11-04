@@ -1,0 +1,70 @@
+* Sound sheet D-1/7 (SLIP ZONE SOUND oscillator), pin-wired from
+* docs/trace/SOUND_D1_TRACE.md (its 31 October review). Reference for the
+* Verilog model; not used by the core.
+*
+* Sources the includer defines:
+*   noise  the S2688 output (D-4 IC62 pin 3), 3.0 / 10.5 V, as on D-4
+*   padj   pad J, SLIP ZONE from the logic board, as a TTL level
+*          (0.2 / 3.4 V); low = in the slip zone
+* and the parameter a7: VR7's wiper position (0 = ground end, 1 = 12 V end).
+* The 6 V reference made on D-5/7 is ideal. Output: the current into the
+* D-4 mixer's 6 V virtual ground (IC66 b) through R412 51K (Vm412).
+.include opamps.lib
+.include parts.lib
+* supplies ramp up over the first millisecond (power-on)
+V12 v12 0 PWL(0 0 1m 12)
+V5  vcc 0 PWL(0 0 1m 5)
+V6  v6 0 PWL(0 0 1m 6)
+*
+* ---- noise input: C68 1 uF, R345 10K, C105 0.1 uF to ground, R350 10K
+C68 noise n68 1u
+R345 n68 n105 10k
+C105 n105 0 0.1u
+R350 n105 na 10k
+*
+* ---- IC53 a (2 -, 3 +, 1 out): multiple-feedback band-pass; C71 and C70
+* 0.022 uF from node A, R348 220K feedback. R349 100R and the 2SC458 shunt
+* node A to ground.
+C71 na i53m2 0.022u
+C70 na o53_1 0.022u
+R348 i53m2 o53_1 220k
+XIC53a v6 i53m2 o53_1 v12 0 LM324
+R349 na tc 100
+Q1 tc tb 0 Q2SC458
+*
+* ---- IC53 b (6 -, 5 +, 7 out): C69 2.2 uF, R347 33K in, R346 100K back
+C69 o53_1 n69 2.2u
+R347 n69 i53m6 33k
+R346 i53m6 o53_7 100k
+XIC53b v6 i53m6 o53_7 v12 0 LM324
+*
+* ---- IC54 (4016, 1 in, 2 out, 13 control): R352 10K to 12 V, the 7416's
+* open collector (IC56 5 -> 6) pulls it low while pad J is high
+XIC54 o53_7 sw c54 0 SW4016
+R352 v12 c54 10k
+B56 l56 0 V={V(padj) > 1.4 ? 0 : 5}
+XIC56 l56 c54 0 OCOUT
+* R312 470R pulls pad J up to Vcc (no effect against the driving source)
+R312 vcc padj 470
+*
+* ---- output: R353 / R354 51K bias, C73 2.2 uF, R412 51K into IC66 b
+R353 v12 sw 51k
+R354 sw 0 51k
+C73 sw n73 2.2u
+R412 n73 n412 51k
+Vm412 n412 v6 0
+*
+* ---- IC53 c (9 -, 10 +, 8 out): relaxation oscillator. R309 10K and C63
+* 22 uF on 9; R307 100K from 8 and R351 1K from VR7's wiper on 10.
+R7top v12 w7 {20k*(1-a7)+0.01}
+R7bot w7 0 {20k*a7+0.01}
+R351 w7 i53p10 1k
+R307 o53_8 i53p10 100k
+R309 o53_8 c63 10k
+C63 c63 0 22u
+XIC53c i53p10 c63 o53_8 v12 0 LM324
+* ---- IC53 d (13 -, 12 +, 14 out): follower of C63; R308 10K to the base,
+* R343 10K base to ground
+XIC53d c63 o53_14 o53_14 v12 0 LM324
+R308 o53_14 tb 10k
+R343 tb 0 10k

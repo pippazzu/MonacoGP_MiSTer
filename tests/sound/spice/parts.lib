@@ -1,0 +1,18 @@
+* Discrete parts and logic interfaces for the sound board references.
+* Generic stand-ins with typical data-sheet behaviour (not measured parts):
+*  2SC458: small-signal NPN, hFE about 250.
+*  MA150: silicon switching diode, modelled like a 1N4148.
+.model Q2SC458 NPN(IS=1e-14 BF=250 VAF=100 BR=5 CJE=8p CJC=4p TF=0.5n TR=50n)
+.model DMA150 D(IS=2.52e-9 N=1.752 RS=0.568 CJO=4p M=0.333 VJ=0.5 TT=20n BV=75)
+*
+* CD4016 transmission gate at a 12 V supply: about 300 ohm on when the
+* control is above 6 V, open otherwise. ctl is referred to gnd.
+.subckt SW4016 a b ctl gnd
+Rsw a b r={V(ctl,gnd) > 6 ? 300 : 1e10}
+.ends SW4016
+*
+* Open-collector TTL output (7406, 7407, 7416, 7417): sinks to gnd through
+* 20 ohm while the logic level 'lvl' (a 0/5 V source) is low, else open.
+.subckt OCOUT lvl out gnd
+Rsw out gnd r={V(lvl,gnd) < 2.5 ? 20 : 1e10}
+.ends OCOUT

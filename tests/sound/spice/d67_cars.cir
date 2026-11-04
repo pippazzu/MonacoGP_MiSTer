@@ -1,0 +1,396 @@
+* Sound sheets D-6/7 (OTHER CAR SOUND oscillators) and D-7/7 (other-car
+* control and sound selection), pin-wired from docs/trace/SOUND_D6_TRACE.md
+* and docs/trace/SOUND_D7_TRACE.md (consolidated and checked 1 November
+* 2026). Reference for the Verilog model; not used by the core.
+*
+* Sources the includer defines (0/5 V logic):
+*   acc_b, acc_c, acc_d  S-ACCE B, C, D as on D-3 (IC36's A, B, C inputs)
+*   fsnd                 pad C ("Trg / F SOUND"), sheet H's /F-SOUND
+* and the parameter r190 (R190: 68K on the schematic, 6.8K on the 96598-P
+* board photo, blue-grey-red; see the D-7 trace).
+* The 6 V reference made on D-5/7 (IC32 + 5, the front mixer) and the
+* D-2/D-4 virtual grounds are ideal 6 V sources. Outputs: the current into
+* the D-4 mixer through R409 (Vmf) and into D-2's IC40 pin 6 through
+* R220 / R217 (Vmb); the nodes listed in d67_reference.py.
+.include opamps.lib
+.include parts.lib
+.include mc3340.lib
+* Two smooth stand-ins where the library parts stall ngspice's time step
+* here (their controls move continuously, from comparators and ramps):
+* LM339S is opamps.lib's LM339 with a smooth floor on the output-voltage
+* term and 5 pF at the pin; SW4016S is a CD4016 gate that turns on smoothly,
+* about 300 ohm from 7 V up and open below 5 V (12 V supply).
+.subckt LM339S inp inn out gnd
+Bsw ctl gnd V={0.5+0.5*tanh((V(inn)-V(inp))*2000)}
+Rctl ctl c2 1k
+Cctl c2 gnd 0.3n
+Gsink out gnd value={V(c2)*16e-3*tanh(0.02*ln(1+exp(V(out,gnd)/0.02))/0.1)}
+Roff out gnd 1e9
+Cpin out gnd 5p
+.ends LM339S
+.subckt SW4016S a b ctl gnd
+Gsw a b value={V(a,b)*(1e-10+(0.5+0.5*tanh((V(ctl,gnd)-6)/0.25))/300)}
+.ends SW4016S
+* supplies ramp up over the first millisecond (power-on)
+V12 v12 0 PWL(0 0 1m 12)
+V5  vcc 0 PWL(0 0 1m 5)
+V6  v6 0 PWL(0 0 1m 6)
+*
+* ======================================================== D-6 bank
+* One OTHER CAR SOUND bank: three cells as on D-3 (same values), cell 1's
+* integrator through 22 uF into the MC3340's CON with its bias divider,
+* cells 2 and 3 through MA150s into the bus (10K), 10 uF into IN.
+* Pins: cv (OTHER CAR CON), out (MC3340 OUT), v12, r6 (D-6's half-rail),
+* gnd. rbt/rbb: the CON bias divider.
+.subckt D6BANK cv out v12 r6 gnd rbt=10k rbb=330
+* cell 1 (150K, 68K, 6800p + 470p)
+Ri1 cv m1 150k
+Ra1 cv p1 51k
+Rb1 p1 gnd 51k
+Cc1 m1 o1 6800p
+Cj1 m1 o1 470p
+Xi1 p1 m1 o1 v12 gnd LM324
+Rc1 m1 c1 68k
+Qt1 c1 b1 gnd Q2SC458
+Rbase1 b1 gnd 2.2k
+Xs1 sp1 o1 so1 v12 gnd LM324
+Rh1 r6 sp1 51k
+Rf1 so1 sp1 100k
+Rd1 so1 da1 10k
+Dd1 da1 b1 DMA150
+* cell 2 (270K, 120K, 4700p)
+Ri2 cv m2 270k
+Ra2 cv p2 51k
+Rb2 p2 gnd 51k
+Cc2 m2 o2 4700p
+Xi2 p2 m2 o2 v12 gnd LM324
+Rc2 m2 c2 120k
+Qt2 c2 b2 gnd Q2SC458
+Rbase2 b2 gnd 2.2k
+Xs2 sp2 o2 so2 v12 gnd LM324
+Rh2 r6 sp2 51k
+Rf2 so2 sp2 100k
+Rd2 so2 da2 10k
+Dd2 da2 b2 DMA150
+* cell 3 (220K, 100K, 0.022u)
+Ri3 cv m3 220k
+Ra3 cv p3 51k
+Rb3 p3 gnd 51k
+Cc3 m3 o3 0.022u
+Xi3 p3 m3 o3 v12 gnd LM324
+Rc3 m3 c3 100k
+Qt3 c3 b3 gnd Q2SC458
+Rbase3 b3 gnd 2.2k
+Xs3 sp3 o3 so3 v12 gnd LM324
+Rh3 r6 sp3 51k
+Rf3 so3 sp3 100k
+Rd3 so3 da3 10k
+Dd3 da3 b3 DMA150
+* CON: cell 1 through 22 uF, bias divider
+Ccon o1 con 22u
+Rbt v12 con {rbt}
+Rbb con gnd {rbb}
+* bus: cells 2, 3 through MA150s, 10K load, 10 uF into IN
+Dbus2 o2 bus DMA150
+Dbus3 o3 bus DMA150
+Rbus bus gnd 10k
+Cin bus mcin 10u
+* MC3340 (pin 6 not drawn on D-6: left open)
+Xmc mcin con gnd roll out v12 MC3340
+Rroll roll gnd 1e12
+Cout out gnd 10p
+.ends D6BANK
+*
+* D-6 half-rail: R82/R83 1K, C22/C23 100u
+R82 v12 r6 1k
+R83 r6 0 1k
+C22 v12 r6 100u
+C23 r6 0 100u
+* NO1: IC10/IC9/IC8 A,B; C26, R108 10K, R109 330, IC12. NO2: D,C sections;
+* C24, R80 10K, R81 3.3K, IC11.
+XNO1 cv1 snd1 v12 r6 0 D6BANK rbt=10k rbb=330
+XNO2 cv2 snd2 v12 r6 0 D6BANK rbt=10k rbb=3.3k
+*
+* ======================================================== D-7 decoder
+* IC36 (74145, open collector): A = S-ACCE B, B = C, C = D, D = GND, so it
+* decodes n = B + 2C + 4D. O0-O3 tied (R225 4.7K to Vcc), O4-O5 tied (47K
+* to Vcc), O6-O7 tied at R124's lower end.
+Elo03 lo03 0 vol='V(acc_d) > 2.5 ? 5 : 0'
+Elo45 lo45 0 vol='(V(acc_d) > 2.5 && V(acc_c) < 2.5) ? 0 : 5'
+Elo67 lo67 0 vol='(V(acc_d) > 2.5 && V(acc_c) > 2.5) ? 0 : 5'
+XO03 lo03 o03 0 OCOUT
+XO45 lo45 o45 0 OCOUT
+XO67 lo67 o67 0 OCOUT
+R225 vcc o03 4.7k
+R45 vcc o45 47k
+R124 feed o67 1.5k
+* IC38 9,10 -> 8 (NAND), IC47 9 -> 8 (open-collector inverter), R169 1.2K
+E38 n38 0 vol='(V(o03) > 1.4 && V(o45) > 1.4) ? 0 : 5'
+E47 l47 0 vol='V(n38) > 2.5 ? 0 : 5'
+XIC47 l47 o47 0 OCOUT
+R169a feed o47 1.2k
+R125 v12 feed 1k
+* IC56 13 -> 12: high while n is 0..3
+E56 n56 0 vol='V(o03) > 1.4 ? 0 : 5'
+*
+* ======================================================== ramps
+* TL081 integrators IC14 (R126) and IC28 (R150) from the feed, 22u x 2
+* back to back (11 uF); + at R151/R127 (6 V) with C30. Their upper output
+* limit (hid=0: 12 V, the supply) is a setting fitted to the maintainer's board
+* recordings of the passing cars, not the TL081's typical 10.5 V
+* (docs/SOUND_LOGIC.md, D-6/7 and D-7/7).
+R151 v12 ref14 10k
+R127 ref14 0 10k
+C30 ref14 0 2.2u
+R126 feed i14m 33k
+C2829 i14m r14 11u
+XIC14 ref14 i14m r14 v12 0 TL081 hid=0
+R150a feed i28m 33k
+C3132 i28m r28 11u
+XIC28 ref14 i28m r28 v12 0 TL081 hid=0
+* resets: TR12 / TR13 collectors through R173 / R172 100 ohm
+R173 i14m t12c 100
+Q12 t12c t12b 0 Q2SC458
+R228 q59a t12b 10k
+R12b t12b 0 10k
+R172 i28m t13c 100
+Q13 t13c t13b 0 Q2SC458
+R227 q59b t13b 10k
+R226 t13b 0 10k
+* IC15: u1 = 7 (R132/R133), u2 = 1 (R128/R129), + at R130/R131
+R130 v12 ref130 5.1k
+R131 ref130 0 6.8k
+R132 r14 i15m6 100k
+R133 u1 i15m6 47k
+XIC15b ref130 i15m6 u1 v12 0 LM324
+R128 r28 i15m2 100k
+R129 u2 i15m2 47k
+XIC15a ref130 i15m2 u2 v12 0 LM324
+*
+* ======================================================== shapers
+R161 v12 refa 10k
+R157a refa 0 5.1k
+R147 v12 refb 6.8k
+R122 refb 0 2.7k
+R140 v12 refc1 5.6k
+R144 refc1 refc 330
+R119 refc 0 3.3k
+R141 v12 refd 5.1k
+R116 refd 0 1k
+* IC17 6,5 -> 7 (s1a); 2,3 -> 1 (s1b); 9,10 -> 8 (s2a); 13,12 -> 14 (s2b)
+R162 u1 i17m6 10k
+R163 s1a i17m6 5.1k
+XIC17b refa i17m6 s1a v12 0 LM324
+R148 refb i17m2 51k
+R158 s1b i17m2 51k
+R159 u1 i17p3 3.3k
+R160 i17p3 0 6.8k
+XIC17a i17p3 i17m2 s1b v12 0 LM324
+R138 u2 i17m9 10k
+R139 s2a i17m9 5.1k
+XIC17c refa i17m9 s2a v12 0 LM324
+R123 refb i17m13 51k
+R134 s2b i17m13 51k
+R135 u2 i17p12 3.3k
+R136a i17p12 0 6.8k
+XIC17d i17p12 i17m13 s2b v12 0 LM324
+* IC16 6,5 -> 7 (s1c); 3 -> 1 follower (s1d); 9,10 -> 8 (s2c); 12 -> 14 (s2d)
+R145 u1 i16m6 10k
+R146 s1c i16m6 10k
+XIC16b refc i16m6 s1c v12 0 LM324
+R143 u1 i16p3 51k
+R136b i16p3 refd 51k
+XIC16a i16p3 s1d s1d v12 0 LM324
+R120 u2 i16m9 10k
+R121 s2c i16m9 10k
+XIC16c refc i16m9 s2c v12 0 LM324
+R118 u2 i16p12 51k
+R117 i16p12 refd 51k
+XIC16d i16p12 s2d s2d v12 0 LM324
+*
+* ======================================================== selection
+R208 v12 href 10k
+R209 href 0 10k
+C33 href 0 10u
+* IC31 9/8 -> 14 and 11/10 -> 13: s1a against s1b (IC24 ctl 6 / 12)
+R171 s1a c31p9 2.2k
+R170 c31a c31p9 100k
+XIC31a c31p9 s1b c31a 0 LM339S
+R168 v12 c31a 2.2k
+XIC31b href c31a c31b 0 LM339S
+R169b v12 c31b 2.2k
+* IC30 9/8 -> 14 and 11/10 -> 13: s1c against s1d (IC23 ctl 6 / 12)
+R167 s1c c30p9 2.2k
+R166 c30a c30p9 100k
+XIC30a c30p9 s1d c30a 0 LM339S
+R164 v12 c30a 2.2k
+XIC30b href c30a c30b 0 LM339S
+R165 v12 c30b 2.2k
+* IC31 7/6 -> 1 and 5/4 -> 2: s2a against s2b (IC24 ctl 5 / 13)
+R185 s2a c31p7 2.2k
+R184 c31c c31p7 100k
+XIC31c c31p7 s2b c31c 0 LM339S
+R183 v12 c31c 2.2k
+XIC31d href c31c c31d 0 LM339S
+R186 v12 c31d 2.2k
+* IC30 7/6 -> 1 and 5/4 -> 2: s2c against s2d (IC23 ctl 5 / 13)
+R181 s2c c30p7 2.2k
+R182 c30c c30p7 100k
+XIC30c c30p7 s2d c30c 0 LM339S
+R180 v12 c30c 2.2k
+XIC30d href c30c c30d 0 LM339S
+R179 v12 c30d 2.2k
+* 4016 IC24 / IC23 into the followers' input sums
+XIC24a s1a w196 c31a 0 SW4016S
+R196 w196 f1 10k
+XIC24b s1b w195 c31b 0 SW4016S
+R195 w195 f1 10k
+XIC23a s1c w194 c30a 0 SW4016S
+R194 w194 f2 10k
+XIC23b s1d w193 c30b 0 SW4016S
+R193 w193 f2 10k
+XIC24c s2a w212 c31c 0 SW4016S
+R212 w212 f3 10k
+XIC24d s2b w213 c31d 0 SW4016S
+R213 w213 f3 10k
+XIC23c s2c w210 c30c 0 SW4016S
+R210 w210 f4 10k
+XIC23d s2d w211 c30d 0 SW4016S
+R211 w211 f4 10k
+* followers: IC18 5/6 -> 7 (IC20 CON), 3/2 -> 1 (IC19 CON), IC32 10/9 -> 8
+* (IC34 CON), 12/13 -> 14 (IC33 CON)
+XIC18b f1 con20 con20 v12 0 LM324
+XIC18a f2 con19 con19 v12 0 LM324
+XIC32c f3 con34 con34 v12 0 LM324
+XIC32d f4 con33 con33 v12 0 LM324
+* CAR CON NO1 / NO2: IC18 10/9 -> 8, 12/13 -> 14
+R197 con20 i18m9 100k
+R198 cv1 i18m9 100k
+R192 v12 r192 5.1k
+R191 r192 0 5.6k
+XIC18c r192 i18m9 cv1 v12 0 LM324
+R188 con34 i18m13 100k
+R187 cv2 i18m13 100k
+R189 v12 r189 5.6k
+R190 r189 0 {r190}
+XIC18d r189 i18m13 cv2 v12 0 LM324
+*
+* ======================================================== triggers
+* first-stage LM339 (7/6 -> 1, taken as IC29) and IC29 9/8 -> 14 on u1, u2;
+* - at the 3.3K / 3.3K divider
+R157b v12 ref33 3.3k
+R156 ref33 0 3.3k
+R176 u1 c29p7 2.2k
+R177 c29a c29p7 100k
+XIC29a c29p7 ref33 c29a 0 LM339S
+R178 v12 c29a 2.2k
+R154 u2 c29p9 2.2k
+R154f c29c c29p9 100k
+XIC29c c29p9 ref33 c29c 0 LM339S
+R415 v12 c29c 2.2k
+* IC29 5/4 -> 2 and 11/10 -> 13, + at R152/R153; 4.7K to Vcc (TTL)
+R152 v12 r152 10k
+R153 r152 0 10k
+XIC29b r152 c29a c292 0 LM339S
+R174 vcc c292 4.7k
+XIC29d r152 c29c c2913 0 LM339S
+R175 vcc c2913 4.7k
+* pad C, R311 2.2K to Vcc
+R311 vcc padc 2.2k
+Rfs fsnd padc 100
+* TTL gates (IC55 7427 NOR, IC46 inverters) as XSPICE digital
+Aadc [padc c292 c2913 n56] [dpadc d292 d2913 d56] ttladc
+.model ttladc adc_bridge(in_low=1.3 in_high=1.5)
+Anor1 [dpadc d292 d56] d5512 nor7427
+Anor2 [dpadc d2913 d56] d556 nor7427
+.model nor7427 d_nor(rise_delay=10n fall_delay=10n)
+Ainv1 d556 d466 inv7404
+Ainv2 d292 d464 inv7404
+.model inv7404 d_inverter(rise_delay=10n fall_delay=10n)
+Anor3 [d466 d464 d58] d558 nor7427
+Aq58 [q58] [d58] ttladc
+* XSPICE starts its gates with every input low, so IC55 a/c would begin high
+* and the one-shots take that as a trigger at t = 0; a power-on gate (low
+* until the supplies are up) keeps that start-up out. Not on the board.
+Vpor por 0 PWL(0 0 1m 0 1.001m 5)
+Apor [por] [dpor] ttladc
+Agate1 [d5512 dpor] d5512g and7408
+Agate2 [d558 dpor] d558g and7408
+.model and7408 d_and(rise_delay=1n fall_delay=1n)
+Adac [d5512g d558g] [t5512 t558] ttldac
+.model ttldac dac_bridge(out_low=0.2 out_high=3.4 t_rise=10n t_fall=10n)
+* 74123s (B rising with A low; retriggerable). tw = 0.28 R C (1 + 0.7/R):
+* IC59 C75 2.2u / R259 10K and C85 2.2u / R371 10K: 6.59 ms; IC58 47u /
+* R320 47K: 0.628 s.
+Aos59a t5512 one clr0 q59a os59
+Aos59b t558 one clr0 q59b os59
+Aos58 t5512 one clr0 q58 os58
+Vone one 0 1
+Vclr0 clr0 0 0
+.model os59 oneshot(clk_trig=1.5 pos_edge_trig=TRUE retrig=TRUE out_low=0.2 out_high=3.4
++ cntl_array=[0 10] pw_array=[6.5912m 6.5912m] rise_time=20n fall_time=20n rise_delay=30n fall_delay=30n)
+.model os58 oneshot(clk_trig=1.5 pos_edge_trig=TRUE retrig=TRUE out_low=0.2 out_high=3.4
++ cntl_array=[0 10] pw_array=[0.62831 0.62831] rise_time=20n fall_time=20n rise_delay=30n fall_delay=30n)
+* TR11 / TR10: IC25 controls
+R215 q59a t11b 10k
+R11b t11b 0 10k
+Q11 g1 t11b 0 Q2SC458
+R216 v12 g1 10k
+R200 q59b t10b 10k
+R201 t10b 0 10k
+Q10 g2 t10b 0 Q2SC458
+R199 v12 g2 10k
+*
+* ======================================================== MC3340s and outputs
+* NO1 front IC20, back IC19; NO2 front IC34, back IC33. Pin 6 not drawn.
+C37 snd1 m20i 2.2u
+XIC20 m20i con20 0 m20r m20o v12 MC3340
+R20r m20r 0 1e12
+C20o m20o 0 10p
+C35 m20o w258 2.2u
+XIC25a w258 b1f g1 0 SW4016S
+R202 v12 b1f 10k
+R205 b1f 0 10k
+C39 b1f n39 2.2u
+R207 n39 fsum 10k
+C36 snd1 m19i 2.2u
+XIC19 m19i con19 0 m19r m19o v12 MC3340
+R19r m19r 0 1e12
+C19o m19o 0 10p
+C38a m19o w2511 2.2u
+XIC25b w2511 b1b g1 0 SW4016S
+R203 v12 b1b 10k
+R206 b1b 0 10k
+C41 b1b n41 2.2u
+R220 n41 bsum 51k
+C45 snd2 m34i 2.2u
+XIC34 m34i con34 0 m34r m34o v12 MC3340
+R34r m34r 0 1e12
+C34o m34o 0 10p
+C43 m34o w254 2.2u
+XIC25c w254 b2f g2 0 SW4016S
+R218 v12 b2f 10k
+R221 b2f 0 10k
+C38b b2f n38b 2.2u
+R204 n38b fsum 10k
+C33i snd2 m33i 2.2u
+XIC33 m33i con33 0 m33r m33o v12 MC3340
+R33r m33r 0 1e12
+C33o m33o 0 10p
+C33x m33o w251 2.2u
+XIC25d w251 b2b g2 0 SW4016S
+R219 v12 b2b 10k
+R222 b2b 0 10k
+C40 b2b n40 2.2u
+R217 n40 bsum 51k
+* front mixer IC32 6/5 -> 7, R426 33K; C15 and R409 82K into D-4's mixer
+R426 front fsum 33k
+XIC32b v6 fsum front v12 0 LM324
+C15 front n15 2.2u
+R409 n15 mf 82k
+Vmf mf v6 0
+* back: into D-2's IC40 pin 6 (virtual ground at 6 V)
+Vmb bsum v6 0
+* 100 pF on the two pitch-control nodes (stray, keeps the solver moving)
+Ccv1 cv1 0 100p
+Ccv2 cv2 0 100p

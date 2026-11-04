@@ -1,0 +1,49 @@
+* MC3340 electronic attenuator (Motorola), transistor level.
+* Topology and resistor values: Motorola's internal schematic, as transcribed
+* in MAME's netlist library (src/lib/netlist/macro/nlm_opamp_lib.cpp,
+* MC3340_DIP, licence CC0-1.0, by Colin Howell), which restores the
+* cross-connection missing from the 1990s data books and the two diodes of
+* the 1979 data book. Transistor and diode models are that netlist's
+* (generic NPN, IS raised to match Motorola's attenuation curve).
+* This is a component model, not Monaco GP circuitry.
+* Pins: 1 IN, 2 CONTROL, 3 GND, 6 ROLLOFF, 7 OUTPUT, 8 VCC
+.subckt MC3340 in ctl gnd roll out vcc
+.model QMC NPN(IS=1e-13 BF=100)
+.model DMC D(IS=1e-15 N=1)
+R1  vcc n1 5.1k
+D1  n1 n1k DMC
+R2  n1k gnd 4.7k
+Q1  vcc n1 e1 QMC
+R3  e1 b2 750
+R4  b2 gnd 10k
+Q2  vcc b2 e2 QMC
+R5  e1 b3 750
+R6  b3 ctli 3.9k
+* Control offset (3 November 2026): the transistor model reaches each
+* attenuation about 0.13 V of CONTROL earlier than Motorola's typical 12 V
+* curve (data sheet Figure 3, "Attenuation versus DC Control Voltage";
+* 0.10-0.20 V from 2 to 34 dB). This source moves the whole curve onto it.
+VCOFS ctl ctli DC 0.13
+Q3  vcc b3 e3 QMC
+R7  vcc n7 5.1k
+R8  in n7 20k
+D2  n7 n7k DMC
+R9  n7k gnd 510
+Q4  vcc e3 e46 QMC
+Q5  e46 in e5 QMC
+R10 e5 gnd 1.3k
+Q6  roll e2 e46 QMC
+Q7  vcc e2 e79 QMC
+Q8  e79 b8 e8 QMC
+R12 e8 gnd 1.5k
+Q9  roll e3 e79 QMC
+R11 e2 gnd 5.1k
+R14 e3 gnd 5.1k
+R13 vcc roll 6.2k
+Q10 vcc roll out_e QMC
+R15 out_e gnd 5.1k
+R16 out_e out 200
+R17 vcc b8 5.1k
+D3  b8 b8k DMC
+R18 b8k gnd 510
+.ends MC3340

@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Andrea Bogazzi
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Date: 03-11-2026
+
+[global]
+author=["Andrea Bogazzi"]
+overrule=[{rotate=270}]
+
+[parse]
+sourcefile=["monacogp.cpp"]
+
+[buttons]
+names=[{names="Accelerate,Gear,Scoreboard"}]
+
+[dipsw]
+extra=[
+    {name="Coin, play", options="1 coin 1 play,1 coin 2 plays", bits="0"},
+    {name="Back sound in front mix", options="On,Off", bits="8"},
+    {name="Louder explosion", options="Off,On", bits="9"},
+]
+
+[ROM]
+regions=[
+    {name="maincpu", skip=true},
+    {name="roms", no_offset=true},
+]
+order=["roms"]

@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "set": "monacogp",
+  "board_revision": "96577-P / 96578-P, original 512-byte graphics PROMs",
+  "total_bytes": 8800,
+  "reference": "mamedev/mame src/mame/sega/monacogp.cpp",
+  "roms": [
+    {"name":"pra125.ic59", "size":512, "offset":0, "crc32":"7a66ed4c", "sheet":"G"},
+    {"name":"pra126.ic65", "size":512, "offset":512, "crc32":"5d7a8f12", "sheet":"G"},
+    {"name":"pra127.ic77", "size":512, "offset":1024, "crc32":"8ffdc2f0", "sheet":"G"},
+    {"name":"pra128.ic84", "size":512, "offset":1536, "crc32":"dde29dea", "sheet":"G"},
+    {"name":"pra129.ic91", "size":512, "offset":2048, "crc32":"7b18af26", "sheet":"G"},
+    {"name":"pra130.ic98", "size":512, "offset":2560, "crc32":"9ef1913b", "sheet":"G"},
+    {"name":"pra131.ic71", "size":512, "offset":3072, "crc32":"ff31eb01", "sheet":"G"},
+    {"name":"pra132.ic111", "size":512, "offset":3584, "crc32":"6b8ad9bc", "sheet":"H"},
+    {"name":"pra133.ic64", "size":512, "offset":4096, "crc32":"d50641d9", "sheet":"B"},
+    {"name":"pra134.ic113", "size":512, "offset":4608, "crc32":"8ebd50bb", "sheet":"D"},
+    {"name":"pra135.ic106", "size":512, "offset":5120, "crc32":"986eda32", "sheet":"D"},
+    {"name":"pra136.ic99", "size":512, "offset":5632, "crc32":"ecc5d1a2", "sheet":"D"},
+    {"name":"pra137.ic120", "size":512, "offset":6144, "crc32":"ddd9004e", "sheet":"D"},
+    {"name":"pra138.ic30", "size":512, "offset":6656, "crc32":"058e53cf", "sheet":"M"},
+    {"name":"pra139.ic51", "size":512, "offset":7168, "crc32":"e8ba0794", "sheet":"M"},
+    {"name":"pra140.ic12", "size":512, "offset":7680, "crc32":"48e9971b", "sheet":"M"},
+    {"name":"pra141.ic17", "size":512, "offset":8192, "crc32":"99934236", "sheet":"M"},
+    {"name":"prm38.ic115", "size":32, "offset":8704, "crc32":"82dd0a0f", "sheet":"H"},
+    {"name":"prm39.ic105", "size":32, "offset":8736, "crc32":"6acfa0da", "sheet":"H"},
+    {"name":"prm40.ic21", "size":32, "offset":8768, "crc32":"87d12d57", "sheet":"sound D5/7"}
+  ]
+}
