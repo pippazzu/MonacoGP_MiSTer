@@ -9,3 +9,4 @@ __pycache__/
 log/
 modules
 cores/monacogp/mister/
+!releases/*.rbf
