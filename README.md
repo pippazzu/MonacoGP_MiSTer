@@ -18,7 +18,9 @@ Use ROMs (not included) conforming to monacogp.zip (merged) from MAME's romset.
 
 ## Not on the original board
 
-The score, time and gear overlays and the on-screen LED panel. Scores are also kept between sessions: use Save settings in the OSD to write them. The original board has no score saving feature.
+The score, time and gear overlays and the on-screen LED panel. Scores are also kept between sessions: use Save settings in the OSD to write them. The original board has no score saving feature. When saved scores exist, the scrolling attract mode on first boot does not appear.
+
+
 
 ## Behavior verified on original hardware
 
