@@ -24,6 +24,7 @@ module rc_and2(input a, b, output y);  assign #(`RC_G) y = `TTL(a)&`TTL(b); endm
 module rc_and3(input a, b, c, output y);  assign #(`RC_G) y = `TTL(a)&`TTL(b)&`TTL(c); endmodule
 module rc_or2(input a, b, output y);  assign #(`RC_G) y = `TTL(a)|`TTL(b); endmodule
 module rc_nor2(input a, b, output y);  assign #(`RC_G) y = ~(`TTL(a)|`TTL(b)); endmodule
+module rc_nor3(input a, b, c, output y);  assign #(`RC_G) y = ~(`TTL(a)|`TTL(b)|`TTL(c)); endmodule
 module rc_inv(input a, output y);  assign #(`RC_G) y = ~`TTL(a); endmodule
 module rc_buf(input a, output y);  assign #(`RC_G) y = `TTL(a); endmodule
 // 74157: select pin 1 (low: A inputs), strobe pin 15 (active low).
@@ -81,7 +82,11 @@ module sheet_c_reference(
     input        sig_bl_n, sig_y_n, dummy_area_n, dummy_bl_n, dummy_w_n, dummy_r_n,
     input        rescue_bl_n, rescue_w_n, rescue_y_n, rescue_r_n,
     input        bridge_dbu_n, bridge_bu_n, bridge_y_n, bridge_w_n, bridge_r_n,
+    // Pro board: /+200 (R) from Pro sheet M joins the red collector; BELT
+    // from Pro sheet D; extend and extend_n are then D-EXTEND, /D-EXTEND
+    input        pro, plus200_n, belt,
     output       red_on, blue_on, green_on, bright,
+    output       bdim,                  // Pro: the R8 pull-down on BLUE is on
     output [3:0] code
 );
     wire vcc = 1'b1, gnd = 1'b0, nc = 1'bz;
@@ -111,7 +116,13 @@ module sheet_c_reference(
     rc_and3  ic8c  (.a(rescue_bl_n),.b(other_car_n),.c(n66_12),.y(n8c_12));      // 13, 1, 2 -> 12
     rc_nand2 ic9a  (.a(n14b_8),.b(n8c_12),.y(n9a_8));                            // 9, 10 -> 8
     rc_nand2 ic9b  (.a(v4d),.b(bridge_dbu_n),.y(n9b_6));                         // 4, 5 -> 6
-    rc_nand4 ic14a (.a(m7),.b(n15b_6),.c(n8c_12),.d(n5_4),.y(n14a_6));           // 4, 1, 5, 2 -> 6
+    // Pro (pro/docs/trace/SHEET_C_COMPARE.md D2): this is 57 (5, 1, 2, 4 ->
+    // 6) with D-EXTEND in place of 7M and NOR 51 (4, 3, 5 -> 6) of inverter
+    // 92 (1 -> 2) on IC15 pin 6, BELT and IC14 pin 8 in place of IC15 pin 6.
+    wire p92_2, p51_6;
+    rc_inv  ic92p(.a(n15b_6),.y(p92_2));
+    rc_nor3 ic51p(.a(p92_2),.b(belt),.c(n14b_8),.y(p51_6));
+    rc_nand4 ic14a (.a(pro ? extend : m7),.b(pro ? p51_6 : n15b_6),.c(n8c_12),.d(n5_4),.y(n14a_6)); // 4, 1, 5, 2 -> 6
     rc_nand4 ic14b (.a(splay_n),.b(pool_n),.c(slip_n),.d(house_n[2]),.y(n14b_8)); // 10, 12, 9, 13 -> 8
     rc_nand4 ic26  (.a(n19c_6),.b(sig_bl_n),.c(dummy_bl_n),.d(player_bl_n),.y(n26_6)); // 5, 1, 2, 4 -> 6
     rc_nand3 ic44  (.a(house_n[0]),.b(wall_n),.c(bridge_r_n),.y(n44_12));        // 13, 2, 1 -> 12
@@ -122,7 +133,11 @@ module sheet_c_reference(
     rc_nand8 ic13(.a({n21_6, green_belt_n, n8b_8, n3_10, y_line_n, n8c_12, tg_bl_n, nc}),.y(n13_8));
     rc_nand8 ic4 (.a({sig_y_n, n5_9, q79[4], explo_y_n, nc, n20_12, nc, rescue_y_n}),.y(n4_8));
     rc_nand8 ic27(.a({house_n[3], other_tiar_n, n20_7, player_tiar_n, nc, n5_12, rescue_w_n, dummy_w_n}),.y(n27_8));
-    rc_nand8 ic33(.a({ex_gameover_n, n45_11, player_body_n, explo_r_n, nc, nc, dummy_r_n, rescue_r_n}),.y(n33_8));
+    // Pro (pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md): the red collector, IC74
+    // there, has /+200 on one more input (numeral 5 or 3 on Pro). It goes on
+    // the input left unwired here, pin 3; the 7430 inputs are equivalent.
+    wire n33_p3 = pro ? plus200_n : nc;
+    rc_nand8 ic33(.a({ex_gameover_n, n45_11, player_body_n, explo_r_n, nc, n33_p3, dummy_r_n, rescue_r_n}),.y(n33_8));
     rc_inv ic3a(.a(n26_6),.y(n3_2));     // 1 -> 2
     rc_inv ic3b(.a(n27_8),.y(n3_4));     // 3 -> 4
     rc_inv ic3c(.a(n4_8),.y(n3_6));      // 5 -> 6
@@ -148,5 +163,9 @@ module sheet_c_reference(
     rc_inv ic7e(.a(b2),.y(blue_on));     // 11 -> 10
     rc_inv ic7f(.a(c2),.y(green_on));    // 13 -> 12
     rc_buf ic1 (.a(n3_12),.y(bright));   // IC1 (7417): low pulls the three nodes to the dim level
+    // Pro (D1): a fourth 7417 section, 11 -> 10, from 57 pin 6 to R8 on BLUE
+    wire p17_10;
+    rc_buf ic1p(.a(n14a_6),.y(p17_10));
+    assign bdim = pro & ~p17_10;
     assign code = ~{d2, c2, b2, a2};
 endmodule

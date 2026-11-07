@@ -1,7 +1,7 @@
 # Sheet G: headlight, explosion and splash paths
 
 Source: Sega **Monaco GP (420-0358)** manual, PDF page **27**,
-manual 420-0358, PDF page 27 (10160 × 6624, stored upright): board
+`schematics/pages/page27-sheet-G.png` (10160 × 6624, stored upright): board
 96577-P, drawing G, sheet D3/4. The title reads マイカー、ヘッドライト、爆発、オイル
 スリップ絵出し: the pictures of the player's car, the headlight, the explosion
 and the oil-slip splash.

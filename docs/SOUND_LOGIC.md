@@ -193,9 +193,9 @@ clamp above about 4.3–5.3 V is reached only at power-on. The control pin's
 own current near 0 V is not modelled (the control voltage here stays well
 above it).
 
-**Control offset (3 November 2026, the maintainer's choice).** Against Motorola's
+**Control offset (3 November 2026, Aldo's choice).** Against Motorola's
 typical 12 V curve (data sheet Figure 3, "Attenuation versus DC Control
-Voltage", sent by the maintainer; digitized: 2 dB at 3.04 V, 10 at 3.40, 18 at 3.55,
+Voltage", sent by Aldo; digitized: 2 dB at 3.04 V, 10 at 3.40, 18 at 3.55,
 26 at 3.72, 34 at 3.91, 46 at 4.22, 62 at 4.66, 90 at 5.55) the
 transistor model reached each attenuation 0.10–0.20 V of CONTROL early
 from 2 to 34 dB (0.13 V on average), and is steeper above about 40 dB.
@@ -205,7 +205,7 @@ moves its cut-off from 4.8 to 4.93 V) and the pin's own source
 (`sound_parts.MC_CTL_V0`) move together; after the refit the tables are
 within 0.04 V of Motorola's curve from 2 to 34 dB, still steeper above.
 It applies to every MC3340 (D-2, D-3, D-4, D-5, D-6/D-7), and every
-SPICE reference was run again with it. The maintainer's passing-car clips point to
+SPICE reference was run again with it. Aldo's passing-car clips point to
 about twice this offset, which is inside the data sheet's spread between
 parts.
 
@@ -366,7 +366,7 @@ op-amps' slew outside the cells.
 
 **The ramps' upper limit** (3 November 2026, a setting, not a reading).
 A TL081 on 12 V typically swings to about 10.5 V, and with that limit
-every pass sounded like a steady full-level tone (the maintainer's "beep"). The
+every pass sounded like a steady full-level tone (Aldo's "beep"). The
 reason: the shaper pairs' crossings, where each MC3340's CONTROL is lowest
 (loudest) and CAR CON highest (highest pitch), fall at u = 5.13 V, and a
 ramp at 10.5 V gives u = 5.14 V. A reset therefore parked u at the
@@ -390,6 +390,18 @@ pitch over about 1 s at code 5 (about 0.45 s at code 7) to the crossing
 and falls. Which part of the real board puts the start there is not
 known.
 
+**R109, an option** (6 November 2026, issue #105,
+[sound/OTHER_CAR_COMPARE.md](sound/OTHER_CAR_COMPARE.md)). With R109 at
+330 Ω, as drawn (".33 K", a deliberate point), car 1's CONTROL sits at
+0.72 V and cell 1's swing stays below the MC3340's knee: car 1's note is
+hardly modulated. Car 2's identical stage (R81 3.3K) is modulated deeply,
+and so are the board clips and the Saturn remake's recordings. Car 1 with
+3.3K matches the board clips' lines within about 2 %. The scan does not
+support 3.3K, so the default stays as drawn. `jtmonacogp_snd_d67`'s
+parameter `R109` (build macro `MONACOGP_R109`) selects 0 = 330 Ω, 1 = 3.3K
+or 2 = 33K (Monza's redraw); the models take `r109` the same way, and the
+tests run option 1 against its twin as well.
+
 Each bank's output node is solved with each D-7 input's linear part (MC_VB
 through MC_RIN) and the rest of its current, which moves a sixteenth of
 the way to its new value each step. Until 2 November the rest was taken whole
@@ -397,7 +409,7 @@ from the previous step: the input's knee (up to 22 mS, against the bank
 MC3340's 220 Ω and two inputs a loop gain up to 9.7) then made the node and
 IC32 b flip by 4 to 5 V between steps at the top of each note, about
 100,000 times in the 3 s scenario. That was the "quacking digital noise"
-the maintainer heard on the passing cars. A step of an eighth settles for any gain
+Aldo heard on the passing cars. A step of an eighth settles for any gain
 below 15; after the MC3340 control offset (3 November, see "MC3340" in the
 checks) the inputs reach a steeper part of their knee and an eighth flipped
 again (about 23,000 times), so the step is now a sixteenth, which settles
@@ -617,8 +629,8 @@ anywhere, and might play part of the tune once).
 capacitors by Euler unless said):
 
 1. **Vibrato**: the IC1 a integrator (C3 0.47 µF, R14 100K) and the IC1
-   b Schmitt switching TR1 through R18 and D1: a triangle of about 9 Hz
-   between about 3.0 and 8.25 V, into both note summers through C2/C1
+   b Schmitt (R17 100K, R19 180K) switching TR1 through R18 and D1: a
+   triangle of about 10.8 Hz between about 3.86 and 7.59 V, into both note summers through C2/C1
    4.7 µF and R8/R7 1M (a few tens of millivolts on the note voltage).
 2. **Note voltages**: IC1 c and d, inverting summers (R4/R3 39K in,
    R9/R6 10K feedback) about the R20 33K / R10 point; their inputs the
@@ -654,7 +666,7 @@ capacitors by Euler unless said):
 - **Trimmers** VR1–VR6 (the "ADJ" notes): set so that each note has the
   frequency printed on the drawing, do/mi/so = C/B/A = 262/330/392 Hz,
   with both banks alike (`d5_model.solve_trimmers`: VR4 and VR1 339 Ω,
-  VR5 and VR2 454 Ω, VR6 and VR3 615 Ω). The maintainer's choice (2 November): the
+  VR5 and VR2 454 Ω, VR6 and VR3 615 Ω). Aldo's choice (2 November): the
   trimmers were set by hand at the factory, so the printed figures are
   taken as the factory setting. A setting with the Saturn version's
   notes may come as an OSD option later.
@@ -711,7 +723,7 @@ by default:
 | 9 | DIP SW. 2 contact 2-15 (R423) | open | closed: a louder explosion |
 
 The board's own positions are not on the drawings. The defaults keep a
-single speaker complete (2 November). D-5's DIP SW 1 is not in the
+single speaker complete (Aldo, 2 November). D-5's DIP SW 1 is not in the
 menu: its three note poles are not traced yet (see D-5).
 
 ## D-4/7 mixer and SOUND OUT
@@ -1063,13 +1075,13 @@ does with these part models. It is not a measurement of a real board.
   checked only with the scenario's own pad-C pulses, not from the game.
 - The cabinet amplifier's input (10K) is assumed.
 - The 6 V reference is taken as ideal.
-- The output level is not calibrated: The maintainer's real-board recordings are the
+- The output level is not calibrated: Aldo's real-board recordings are the
   reference for the level and timbre of each sound, to be compared once more
   sounds are built.
 
 ## Open issues reported on the MiSTer (2 November 2026)
 
-The maintainer played build `jtmonacogp_20261102d.rbf` (commit 350811c, D-1 to D-7)
+Aldo played build `jtmonacogp_20261102d.rbf` (commit 350811c, D-1 to D-7)
 on his MiSTer and reported the following. His
 recordings are in the project files under `reference/recordings/`
 (`passing_cars/pass_1..5.wav`, `pass_skid.wav`, `pass_stop.wav`,
@@ -1080,7 +1092,7 @@ recordings are in the project files under `reference/recordings/`
    noise"). Two causes, both in the model:
    - The D-7 inputs' current taken whole from the previous step made the
      bank output nodes and IC32 b flip by 4 to 5 V between steps (fixed 2
-     November, see the D-6/D-7 section). The maintainer heard that build on 3
+     November, see the D-6/D-7 section). Aldo heard that build on 3
      November: the pass still sounded like a "beep".
    - The beep is the envelope: with the ramps limited at 10.5 V each reset
      held the note at its loudest and highest point for about 0.6 s. The
@@ -1115,10 +1127,10 @@ recordings are in the project files under `reference/recordings/`
    - The core recording has short clicks (a few ms, up to 8 times the
      local level) at 3.09, 4.17, 4.91, 5.85 and 6.32 s; source not yet
      identified.
-   The maintainer (2 November): the bad sound is the first car's voice, the passes at
+   Aldo (2 November): the bad sound is the first car's voice, the passes at
    about 0.1, 1.4, 2.9, 4.3 and 6.2 s of `passing_core.wav`; the second
    car's voice is probably wrong too.
-2. **Slip zone too low.** the maintainer's first target was the microphone board
+2. **Slip zone too low.** Aldo's first target was the microphone board
    (1,320 to 1,330 Hz, VR7 about 0.22); on 2 November he decided to leave
    the slip zone as it is (VR7 0.167, about 1,228 Hz).
 3. **Rescue (service) car siren pitch.** `service_car.wav` (board): two tones
@@ -1126,9 +1138,9 @@ recordings are in the project files under `reference/recordings/`
    switching (0.325 / 0.321 s) agrees; its tones (700 / 650 Hz) are about
    30 % high, with the same ratio (board 0.939, model 0.929). The scan reads
    C49 0.033, R232 30K, R233 3.9K, R235 12K, R234 / R416 51K, R231 680 Ω
-   (checked again 2 November). The maintainer decided to leave the pitch as it is.
+   (checked again 2 November). Aldo decided to leave the pitch as it is.
 4. **Rescue siren sometimes missing until the car is halfway down the
-   screen.** The maintainer (2 November): the same behaviour is confirmed on the real
+   screen.** Aldo (2 November): the same behaviour is confirmed on the real
    hardware, so it is original and is left as it is.
 
 ## Hardware cost

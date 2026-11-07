@@ -13,6 +13,11 @@ SPICE reference.
          SPICE reference's (data/d67_spice_features.json, d67_check.py), and
          IC32 b and the banks' output nodes do not flip between steps
          (d67_check.flips).
+  d67_verilog_check.py check OUTDIR R109     the same for a run built with
+      that R109 option (tb_snd_d67.v with D67_R109, docs/sound/
+      OTHER_CAR_COMPARE.md): steps 1 and 2 against the twin built the same
+      way; step 3 is for the drawn circuit only (the SPICE reference has
+      R109 as drawn) and is left out; the step flips are reported.
 """
 import filecmp
 import json
@@ -37,7 +42,7 @@ def stim(outdir,n=N_STEPS):
     out=Path(outdir); out.mkdir(parents=True,exist_ok=True)
     R.write_stim(out/"d67_stim.txt",n)
 
-def check(outdir):
+def check(outdir,r109=0):
     out=Path(outdir)
     with tempfile.TemporaryDirectory() as td:
         X.write_vh(Path(td)/"jtmonacogp_snd_d67.vh")
@@ -45,7 +50,7 @@ def check(outdir):
                            ROOT/"cores/monacogp/hdl/jtmonacogp_snd_d67.vh",shallow=False):
             print("FAIL: jtmonacogp_snd_d67.vh differs from what d67_fixed.py generates")
             sys.exit(1)
-    tw=X.D67Fixed(); n=0; bad=0; rows=[]
+    tw=X.D67Fixed(r109); n=0; bad=0; rows=[]
     with open(out/"snd_d67_steps.txt") as fh:
         for line in fh:
             acc,low=R.inputs(n)
@@ -64,7 +69,18 @@ def check(outdir):
                     print(f"step {n}: "+"; ".join(diff))
             n+=1
     if bad: print(f"FAIL: {bad} of {n} steps differ from the fixed-point twin"); sys.exit(1)
-    print(f"{n} steps equal to the fixed-point twin, bit for bit")
+    print(f"{n} steps equal to the fixed-point twin, bit for bit"+
+          (f" (R109 option {r109})" if r109 else ""))
+    if r109:
+        # no SPICE reference for the option, and FLIP_MAX was set on the
+        # drawn circuit's run: the flips are reported only (option 1 had
+        # 14 on IC32 b on 6 November, 0.2-0.5 V near car 1's peak, the same
+        # kind as the drawn run's 7; the 2 November "quack" was 4-5 V and
+        # about 100,000)
+        a=np.array(rows,dtype=np.float64)
+        fl=F.flips({c:a[:,COLS.index(c)]/float(1<<28) for c in F.FLIP_SIGNALS})
+        print("flips (reported, not checked):"," ".join(f"{k} {v}" for k,v in fl.items()))
+        return n
     if n<N_STEPS:
         print(f"short run ({n} of {N_STEPS} steps): no comparison with SPICE")
         return n
@@ -93,4 +109,4 @@ def features(a):
 
 if __name__=="__main__":
     if sys.argv[1]=="stim": stim(sys.argv[2],int(sys.argv[3]) if len(sys.argv)>3 else N_STEPS)
-    elif sys.argv[1]=="check": check(sys.argv[2])
+    elif sys.argv[1]=="check": check(sys.argv[2],int(sys.argv[3]) if len(sys.argv)>3 else 0)

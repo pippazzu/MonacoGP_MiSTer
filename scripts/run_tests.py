@@ -21,7 +21,9 @@ SIM_TIMEOUT=3600   # seconds per simulation; the longest, the sheet F control ru
 # them, 77 minutes beside three other test groups, 2 November), and with the
 # whole sound board (tb_play_sound) about 65-85 minutes since the other cars
 # (D-6/D-7) are in; they get their own guard against a hung simulation.
-SIM_TIMEOUT_LONG={"play":7200,"play_sound":7200}
+# tb_play_pro (the Pro board) runs a game and a one-bonus payout, 116
+# frames: 94 minutes beside other simulations (6 November).
+SIM_TIMEOUT_LONG={"play":7200,"play_sound":7200,"play_pro":7200}
 
 def write_synthetic(path):
     """Deterministic pseudo-random 8,800-byte image. NOT original PROM data."""
@@ -108,11 +110,24 @@ def main():
         # and without sheets I (rank part), J and K; about 56 minutes on the
         # cloud machine of 2 November 2026, close to the one-hour limit.
         ("play",sorted(hdl.glob("*.v"))+mem),
+        # The same on the Pro board (PRO = 1): sheet N connected, a game that
+        # stores bonuses, then their payout counted on the score
+        # (pro/docs/SHEET_N_LOGIC.md, "Pro board").
+        ("play_pro",sorted(hdl.glob("*.v"))+mem),
+        # The Pro board with no coin: the display mode of sheets B, C and D
+        # (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md) for 40 frames, with a picture
+        # every eighth frame and a picture hash per frame.
+        ("play_attract",sorted(hdl.glob("*.v"))+mem),
         # Sheet G player-car path against the pin-wired reference; about twelve
         # minutes in Icarus.
         ("player",[ROOT/"tests/sheet_g_reference.v",hdl/"jtmonacogp_player.v",
                    hdl/"jtmonacogp_ptest.v",fix/"jtmonacogp_proms.v",
                    fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"]),
+        # The same on the Pro board: PLAYER ST (Pro IC31) for sheet N
+        # (pro/docs/trace/BONUS_INPUTS_TRACE.md), also about twelve minutes.
+        ("player_pro",[ROOT/"tests/tb_player.v",ROOT/"tests/sheet_g_reference.v",
+                       hdl/"jtmonacogp_player.v",hdl/"jtmonacogp_ptest.v",fix/"jtmonacogp_proms.v",
+                       fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"]),
         # Sheet F control logic against the pin-wired reference: the short
         # run (one-shot capacitors / 1000) first, then the circuit as drawn
         # in two runs (accelerate, slip and pool; crash and return), each
@@ -125,6 +140,11 @@ def main():
         ("control_crash",[ROOT/"tests/tb_control.v",ROOT/"tests/sheet_f_reference.v",
                           hdl/"jtmonacogp_control.v",fix/"jtmonacogp_cen.v",
                           hdl/"jtmonacogp_timing.v"]),
+        # The short run on the Pro board: /BONUS POINT through the Pro
+        # sheet F score gate (pro/docs/trace/SHEET_F_BONUS_TRACE.md).
+        ("control_pro",[ROOT/"tests/tb_control.v",ROOT/"tests/sheet_f_reference.v",
+                        hdl/"jtmonacogp_control.v",fix/"jtmonacogp_cen.v",
+                        hdl/"jtmonacogp_timing.v"]),
         # Sheet B road-motion counters and text against the pin-wired
         # reference, in two runs of about 20 and 14 minutes: the four text
         # messages and the counters swinging between the IC69 windows, then
@@ -134,6 +154,11 @@ def main():
         ("motion_random",[ROOT/"tests/tb_motion.v",ROOT/"tests/sheet_b_reference.v",
                           hdl/"jtmonacogp_motion.v",fix/"jtmonacogp_proms.v",
                           fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"]),
+        # Then on the Pro board: the display timer IC72, IC70 and the IC29
+        # speed selector (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md), 60 frames.
+        ("motion_pro",[ROOT/"tests/tb_motion.v",ROOT/"tests/sheet_b_reference.v",
+                       hdl/"jtmonacogp_motion.v",fix/"jtmonacogp_proms.v",
+                       fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"]),
     ]
     # Sheet D scenery logic against the pin-wired reference, on the sheet B
     # RTL's counters: the real MH drift (with pictures), a fast MH stimulus
@@ -144,13 +169,20 @@ def main():
              hdl/"jtmonacogp_timing.v"]
     cases += [("scenery",scenery[1:]),("scenery_fast",scenery),("scenery_ic66nand",scenery),
               ("scenery_ic90a",scenery),("scenery_ic90b",scenery)]
+    # Then the Pro board with the fast MH stimulus: the new decoder input
+    # stage, D-TIME, SLOW, BELT and the rewired clears
+    # (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md).
+    cases += [("scenery_pro",scenery)]
     # Sheet A coin, timer and extended-play logic against the pin-wired
     # reference: capacitors / 1000 through every stage, then the circuit as
     # drawn for 100 frames (first 555 periods, one full IC49 pulse). About 4
     # and 8 minutes.
     coin=[ROOT/"tests/tb_coin.v",ROOT/"tests/sheet_a_reference.v",hdl/"jtmonacogp_coin.v",
           fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"]
-    cases += [("coin",coin[1:]),("coin_full",coin)]
+    # Then the short run on the Pro board: BONUS SOUND and /BONUS CP through
+    # the Pro sheet A gates to pads A29 and A28
+    # (pro/docs/trace/SHEET_A_BONUS_TRACE.md).
+    cases += [("coin",coin[1:]),("coin_full",coin),("coin_pro",coin)]
     # Sheet H other cars, frame counter and divider against the pin-wired
     # reference: one-shot capacitors / 1000 for 40 frames (pictures), then the
     # one-shots as drawn for 200 frames. About 6 and 30 minutes.
@@ -162,18 +194,46 @@ def main():
     # drawn for 60 frames. About 4 and 8 minutes.
     rescue=[ROOT/"tests/tb_rescue.v",ROOT/"tests/sheet_m_reference.v",hdl/"jtmonacogp_rescue.v",
             fix/"jtmonacogp_proms.v",fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"]
-    cases += [("rescue",rescue[1:]),("rescue_full",rescue)]
+    # Then the short run on the Pro board: BONUS CP opening the +200 window
+    # (PR-54, Aldo's reconstruction; pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md).
+    cases += [("rescue",rescue[1:]),("rescue_full",rescue),("rescue_pro",rescue)]
     # Sheet C colour mixing against the pin-wired reference: 400,000 pixels of
     # random lines, both halves of 7M. Under a minute.
-    cases += [("colour",[ROOT/"tests/sheet_c_reference.v",hdl/"jtmonacogp_colour.v"])]
+    # Then on the Pro board, with /+200 on the red collector.
+    cases += [("colour",[ROOT/"tests/sheet_c_reference.v",hdl/"jtmonacogp_colour.v"]),
+              ("colour_pro",[ROOT/"tests/tb_colour.v",ROOT/"tests/sheet_c_reference.v",
+                             hdl/"jtmonacogp_colour.v"])]
+    # Pro +200 graphic on the real raster, sheets M and C with pro = 1: two
+    # frames with BONUS CP high against Aldo's drawing, one with it low; the
+    # picture plus200.ppm. Under a minute.
+    cases += [("plus200",[hdl/"jtmonacogp_rescue.v",hdl/"jtmonacogp_colour.v",
+                          fix/"jtmonacogp_cen.v",hdl/"jtmonacogp_timing.v"])]
+    # Pro sheet N bonus circuit against the pin-wired reference
+    # (pro/docs/SHEET_N_LOGIC.md): one-shot capacitors / 1000, three RTL /
+    # reference pairs (DU_LAG 0, 1, 2), payouts of 1, 2, 15 and 0 bonuses,
+    # two cut payouts, then random inputs. About 1.5 minutes.
+    cases += [("bonus",[ROOT/"tests/pro_sheet_n_reference.v",hdl/"jtmonacogp_bonus.v",
+                        fix/"jtmonacogp_cen.v"])]
     # The OSD 180-degree flip (frame buffers), on the real raster: 6 frames.
     cases += [("flip",[hdl/"jtmonacogp_flip.v",hdl/"jtmonacogp_timing.v",jt/"ram/jtframe_dual_ram16.v",jt/"ram/jtframe_dual_ram.v"])]
+    # The score panel overlay's colours: only black, the game's full red
+    # (12'hf00) and the caption colour, unlit segments black; with pro = 1
+    # the lamp box adds the game's green (12'h0f0) there only; 13 sweeps of
+    # the raster.
+    # The Pro bonus lamps: the lamp PROMs against
+    # pro/reconstruction/lamp-proms.txt (a reconstruction), then 8 pairs of
+    # (cars, bonuses) counts multiplexed by V2 into the panel's lamp box.
+    cases += [("panel_colour",[hdl/"jtmonacogp_panel.v",hdl/"jtmonacogp_font.v"]),
+              ("panel_lamps",[hdl/"jtmonacogp_lamps.v",hdl/"jtmonacogp_panel.v",hdl/"jtmonacogp_font.v"])]
     # Sheet G headlight, explosion and splash paths against the pin-wired
     # reference (its gate models come from sheet_g_reference.v): 40 frames.
     # Sheet I score counter against the pin-wired reference: 3,000,000 pixels
     # of score pulses and resets, runs up to 9999.
     cases += [("score",[ROOT/"tests/sheet_i_score_reference.v",hdl/"jtmonacogp_score.v",
                         fix/"jtmonacogp_cen.v"])]
+    # The same on the Pro board: no 9999 stop, RAM RESET in RST.
+    cases += [("score_pro",[ROOT/"tests/tb_score.v",ROOT/"tests/sheet_i_score_reference.v",
+                            hdl/"jtmonacogp_score.v",fix/"jtmonacogp_cen.v"])]
     # Handle board 96599 against the pin-wired reference (C4 integrated in
     # real time): 2,000,000 pixels of a virtual disc turning both ways.
     # Sheet I high-score memory and ranking with sheet K's rank latches,
@@ -190,6 +250,12 @@ def main():
               ("score_ioctl",[jt/"ram/jtframe_ioctl_dump.v",jt/"ram/jtframe_ram16.v",jt/"ram/jtframe_ram.v"])]
     cases += [("rank",rank[1:]),("rank_drawn",rank),("rank_early",rank),
               ("leds",[ROOT/"tests/sheet_j_reference.v",hdl/"jtmonacogp_leds.v"])]
+    # The Pro board's sheets I and K (pro/docs/trace/SHEET_I_TRACE.md,
+    # SHEET_K_TRACE.md): scores over 9999, SUPER RACER SCORE (67.5 = P >= S
+    # as read, then P > S), RAM RESET, rank latches never cleared. The score
+    # panel overlay with pro = 0 and 1, under a minute.
+    cases += [("rank_pro",rank),("rank_pro_gt",rank),
+              ("panel",[hdl/"jtmonacogp_panel.v",hdl/"jtmonacogp_font.v"])]
     cases += [("handle",[ROOT/"tests/handle_reference.v",hdl/"jtmonacogp_handle.v",
                          fix/"jtmonacogp_cen.v"])]
     cases += [("effects",[ROOT/"tests/sheet_g_reference.v",ROOT/"tests/sheet_g_effects_reference.v",
@@ -225,6 +291,15 @@ def main():
          "-I"+str(hdl),"-Mdir",vdir,"--top-module","tb_snd_d67",ROOT/"tests/tb_snd_d67.v"]+d67,
         timeout=SIM_TIMEOUT)
     run([vdir/"Vtb_snd_d67",f"+OUT={build}"],timeout=SIM_TIMEOUT)
+    # The same scenario with the R109 option 1 (3.3K, not the drawn .33K;
+    # docs/sound/OTHER_CAR_COMPARE.md), against its fixed-point twin only.
+    b109=build/"d67_r109"
+    run([sys.executable,ROOT/"tests/sound/d67_verilog_check.py","stim",b109])
+    vdir=build/"snd_d67_r109_obj"
+    run([verilator,"--binary","--timing","-O3","-Wno-fatal","-Wno-lint","-Wno-WIDTH","-j","2",
+         "-DD67_R109=1","-I"+str(hdl),"-Mdir",vdir,"--top-module","tb_snd_d67",
+         ROOT/"tests/tb_snd_d67.v"]+d67,timeout=SIM_TIMEOUT)
+    run([vdir/"Vtb_snd_d67",f"+OUT={b109}"],timeout=SIM_TIMEOUT)
     run([sys.executable,ROOT/"tests/sound/d2_verilog_check.py","stim",build])
     vdir=build/"snd_d2_obj"
     run([verilator,"--binary","--timing","-O3","-Wno-fatal","-Wno-lint","-Wno-WIDTH","-j","2",
@@ -278,6 +353,7 @@ def main():
     run([sys.executable,sound/"d3_verilog_check.py",build])
     run([sys.executable,sound/"d4_verilog_check.py","check",build])
     run([sys.executable,sound/"d67_verilog_check.py","check",build])
+    run([sys.executable,sound/"d67_verilog_check.py","check",b109,"1"])
     run([sys.executable,sound/"d2_verilog_check.py","check",build])
     run([sys.executable,sound/"d1_verilog_check.py","check",build])
     # the SPICE reference of D-5 was made with the original PROM

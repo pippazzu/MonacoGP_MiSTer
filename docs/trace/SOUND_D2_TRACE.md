@@ -210,7 +210,7 @@ description are corrected; this does not complete the remaining analog nets.
 
 ## Review, 31 October 2026 (Claude)
 
-Checked on full-resolution crops of manual 420-0358, PDF page 16:
+Checked on full-resolution crops of `schematics/pages/page16-sound-D2.png`:
 (2900,3300,4900,4500), (2900,4100,5400,4800), (5300,3700,8300,4900),
 (2400,4100,4400,5600), (4100,4400,6100,5500), (1500,4100,2900,5300),
 (4300,2500,6900,4000), (6600,2900,8000,3900), (3900,3300,5300,4300),

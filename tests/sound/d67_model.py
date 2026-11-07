@@ -70,7 +70,7 @@ FEED=[feed_source(n) for n in range(8)]
 # ---- ramps
 C_RAMP=11e-6                  # 22 uF back to back
 TL_LO=1.5                     # TL081 on 12 V (opamps.lib)
-# The ramps' upper limit: a setting fitted to the maintainer's board recordings of the
+# The ramps' upper limit: a setting fitted to Aldo's board recordings of the
 # passing cars (3 November 2026), not the TL081's typical V12 - 1.5 V. At
 # 10.5 V a reset parks u exactly at the selectors' crossing (the loudest,
 # highest-pitched point) for the 0.6 s windup: a steady full-level tone. On
@@ -138,6 +138,12 @@ R6_R=500.0                    # R82 / R83 1K
 R6_C=200e-6                   # C22 + C23
 C_CON=22e-6                   # C26 (NO1), C24 (NO2)
 BANK_BIAS={1:(10e3,330.0),2:(10e3,3.3e3)}   # R108/R109, R80/R81
+# R109: an option, not a reading (issue #105, docs/sound/OTHER_CAR_COMPARE.md).
+# 0: .33K = 330 ohm as drawn (the default); 1: 3.3K, R81's value in the
+# other bank, which gives car 1 the deep CONTROL modulation that the board
+# clips and the Saturn remake's recordings show; 2: 33K, as Monza's redraw
+# writes it. The Verilog's parameter R109 takes the same index.
+R109_OPTIONS=(330.0,3.3e3,33e3)
 
 # ---- D-7 MC3340s and outputs
 MC=D3M.MC
@@ -157,9 +163,10 @@ INL_ALPHA=1/16                # D-7 inputs' nonlinear current: relaxation per st
 class Bank:
     """One D-6 bank: cells, CONTROL node, bus and its MC3340 (unloaded
     output), driving two D-7 MC3340 inputs."""
-    def __init__(self,no):
+    def __init__(self,no,rbb=None):
         self.d3=D3M.D3()           # cells, bus and IN state (q64, inl)
-        rbt,rbb=BANK_BIAS[no]
+        rbt,rbb0=BANK_BIAS[no]
+        rbb=rbb0 if rbb is None else rbb
         g=1/rbt+1/rbb+1/P.MC_CTL_R
         self.con_g=g
         self.con_i0=V12/rbt+P.MC_CTL_V0/P.MC_CTL_R   # con node: i = con*g - i0
@@ -218,7 +225,8 @@ class Hyst:
         return self.hi
 
 class D67:
-    def __init__(self,r190=R190_BOARD):
+    def __init__(self,r190=R190_BOARD,r109=0):
+        """r109: index into R109_OPTIONS (0, as drawn, by default)."""
         self.ref189=ref189(r190)
         self.ref14=0.0             # C30
         self.r6=V12*0.5            # C22 / C23 split the supply at power-on
@@ -228,7 +236,7 @@ class D67:
         self.sel=[Hyst() for _ in range(4)]   # IC31 a, IC30 a, IC31 c, IC30 c
         self.os59=[0,0]; self.os58=0
         self.nor_a=False; self.nor_c=False
-        self.banks=[Bank(1),Bank(2)]
+        self.banks=[Bank(1,R109_OPTIONS[r109]),Bank(2)]
         self.paths=[Path(R_FRONT),Path(R_BACK),Path(R_FRONT),Path(R_BACK)]
         self.q15=0.0
         # the other blocks' outputs of the previous step (power-on: 0 V,

@@ -22,11 +22,31 @@
 // leaves out can move a road turn by one line (docs/SHEET_B_LOGIC.md).
 // pxl_cen must be at least two host clocks apart. The capacitors (C10, C12,
 // C15, the 220p and 470p parts) are not reproduced.
+//
+// Pro Monaco GP (manual 420-0525, sheet B, PDF page 13), selected by pro = 1:
+// pro/docs/SHEETS_B_C_D_PRO_LOGIC.md, from pro/docs/trace/SHEETS_B_E_COMPARE.md.
+// - The display timer IC72 (two 7474 halves, both /CLR on /COIN IN, pad E1
+//   on Pro, the PROM's A8 net): 72a clocked by Vs/512 (pad E8, sheet H),
+//   72b by 72a's drawn output with D = /COIN IN; 72b /Q (pin 8) is /DISPLAY.
+//   IC72A selects the reading of 72a (see the parameter). Vs/512 comes from
+//   sheet H's frame counter, not from the 7 MHz edge: the halves step at the
+//   host clock after it rises, and are clear while /COIN IN is low.
+// - IC70 (74157, S = /DISPLAY): D-EXTEND, /D-EXTEND and /D-GAME are A's
+//   EXTEND, /EXTEND and /GAME while /DISPLAY is high, D-TIME, NOT D-TIME
+//   (IC57 9 -> 8) and low while it is low.
+// - IC29 (74157, S = /DISPLAY) in front of IC111 and IC110: SP.D..SP.A, or
+//   {SLOW, 0, 0, 0} while /DISPLAY is low.
+// With pro = 0 none of this is used and every output is as before.
 module jtmonacogp_motion #(
     // Values of M1V and M2V after reset. The board has no reset for them;
     // /IN RESET (VSEL low) moves both by a line every frame.
     parameter [7:0] M1V_INIT = 8'd0,
-    parameter [7:0] M2V_INIT = 8'd0
+    parameter [7:0] M2V_INIT = 8'd0,
+    // Pro IC72a, whose D is drawn on its own output, numbered 5 (Q): as drawn
+    // it never toggles (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md, U1).
+    // 0: as drawn (D and 72b's clock on Q); 1: the numeral read as 6 (D and
+    // 72b's clock on /Q; default); 2: D on /Q, 72b's clock on Q.
+    parameter integer IC72A = 1
 )(
     input            clk, rst,
     input            pxl_cen,
@@ -45,6 +65,17 @@ module jtmonacogp_motion #(
     input            in_reset_n,        // /IN RESET, pad EA
     // Sheet D
     input            tunnel_bridge_n,   // /TUNNEL & BRIDGE -> IC95 pin 9
+    // Pro board; ignored while pro = 0. /COIN IN for IC72 is coin_in_n (the
+    // PROM's A8 net, pad E1 on Pro).
+    input            pro,               // 1: Pro Monaco GP board
+    input            vs512,             // Vs/512 (H), pad E8 -> IC72 pin 3
+    input            extend, extend_n,  // EXTEND, /EXTEND (A), pads EB, E3 -> IC70 pins 3, 6
+    input            d_time,            // D-TIME (D) -> IC70 pin 2, IC57 pin 9
+    input            slow,              // SLOW (D) -> IC29 pin 14
+    output           display_n,         // /DISPLAY, IC72 pin 8 -> (D)
+    output           d_extend,          // D-EXTEND, IC70 pin 4 -> (C), (D), (M)
+    output           d_extend_n,        // /D-EXTEND, IC70 pin 7 -> (C), (M)
+    output           d_game_n,          // /D-GAME, IC70 pin 9 -> (D)
     // PR-133 = IC64, 512 x 8. Address A8..A0.
     output     [8:0] pr133_addr,
     input      [7:0] pr133_q,
@@ -71,6 +102,22 @@ module jtmonacogp_motion #(
     // Counter inputs in the pixel that ends at edge 0
     reg        hs_l, v8_l, mhsel_l, vsel_l;
     reg  [3:0] sp_l;
+    // Pro IC72: Q of each half, and Vs/512 in the pixel that ends
+    reg        q72a, q72b, vs512_l;
+
+    // ---------------------------------------------------------------- Pro IC72, IC70, IC29
+    // 7474 /CLR wins: both halves read low while /COIN IN is low.
+    wire clr72 = pro & ~coin_in_n;
+    wire q72a_o = ~clr72 & q72a, q72b_o = ~clr72 & q72b;
+    wire d72a  = IC72A == 0 ? q72a_o : ~q72a_o;          // 72a pin 2
+    wire ck72b = IC72A == 1 ? ~q72a_o : q72a_o;          // 72b pin 11
+    assign display_n = ~q72b_o;                          // 72b pin 8
+    // IC70: 1A/1B -> 4, 2A/2B -> 7, 3A/3B -> 9
+    assign d_extend   = display_n ? extend   : d_time;
+    assign d_extend_n = display_n ? extend_n : ~d_time;
+    assign d_game_n   = display_n ? game_n   : display_n;
+    // IC29 outputs 12, 9, 7, 4 = SP.D..SP.A as IC111 and IC110 see them
+    wire [3:0] spx = !pro || display_n ? sp : {slow, 3'b000};
 
     // IC54 (7442): A, B, C = V5, V6, V7; D at GND. Output n (pins 2..7, 9 for
     // n = 1..7) is low for V7..V5 = n; output 0 is not drawn.
@@ -115,7 +162,7 @@ module jtmonacogp_motion #(
     // VSEL = IC87 (1, 2 -> 3) AND(/IN RESET, IC94 (1, 2, 13 -> 12)),
     // IC94 = NAND(Vs/4, Vs/2, IC95 (9, 10 -> 8)), IC95 = AND(/TUNNEL & BRIDGE,
     // IC110 (12, 13 -> 11)), IC110 = NAND(SP.D, SP.C).
-    assign vsel = in_reset_n & ~(vs4 & vs2 & tunnel_bridge_n & ~(sp[3] & sp[2]));
+    assign vsel = in_reset_n & ~(vs4 & vs2 & tunnel_bridge_n & ~(spx[3] & spx[2]));
     // IC83 (IC84) low-nibble load D..A: S low {/Q, Q, Q, Vcc} (7 or 9),
     // S high {Vcc, GND, GND, GND} (8). The high nibbles load 0000.
     wire [3:0] ld83 = vsel_l ? 4'b1000 : {~q1_r, q1_r, q1_r, 1'b1};
@@ -149,14 +196,26 @@ module jtmonacogp_motion #(
             mh_q <= 0; m1v_q <= M1V_INIT; m2v_q <= M2V_INIT;
             q1_r <= 0; q2_r <= 0; q68_r <= 0;
             hs_l <= 0; v8_l <= 0; mhsel_l <= 1; vsel_l <= 1; sp_l <= 0;
+            q72a <= 0; q72b <= 0; vs512_l <= vs512;
         end else begin
             edge1 <= pxl_cen;
+            // Pro IC72: Vs/512 comes from sheet H's frame counter, not from
+            // the 7 MHz edge, so the halves step at the host clock after it
+            // rises. Held clear while /COIN IN is low (and with pro = 0).
+            vs512_l <= vs512;
+            if (clr72 || !pro) begin
+                q72a <= 0; q72b <= 0;
+            end else if (vs512 && !vs512_l) begin
+                q72a <= d72a;
+                // 72b sees its clock rise as 72a turns
+                if (!ck72b && (IC72A == 1 ? ~d72a : d72a)) q72b <= coin_in_n;
+            end
             if (pxl_cen) begin
                 hs_l <= hs;
                 v8_l <= v[8];
                 mhsel_l <= mhsel;
                 vsel_l <= vsel;
-                sp_l <= sp;
+                sp_l <= spx;
                 q1_r <= q1;
                 q2_r <= q2;
                 q68_r <= q68;

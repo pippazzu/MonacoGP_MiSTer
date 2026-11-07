@@ -102,6 +102,13 @@ module rd_7432(input p1,p2,p4,p5,p9,p10,p12,p13, output p3,p6,p8,p11);
     assign #(`RD_G) p8 =`TTL(p9)|`TTL(p10);
     assign #(`RD_G) p11=`TTL(p12)|`TTL(p13);
 endmodule
+// 7486 (Pro IC113)
+module rd_7486(input p1,p2,p4,p5,p9,p10,p12,p13, output p3,p6,p8,p11);
+    assign #(`RD_G) p3 =`TTL(p1)^`TTL(p2);
+    assign #(`RD_G) p6 =`TTL(p4)^`TTL(p5);
+    assign #(`RD_G) p8 =`TTL(p9)^`TTL(p10);
+    assign #(`RD_G) p11=`TTL(p12)^`TTL(p13);
+endmodule
 // BCD-to-decimal decoder: A, B, C, D = pins 15, 14, 13, 12; outputs 0..9 =
 // pins 1..7, 9..11, active low; codes 10 to 15 select no output.
 module rd_7442(input p15,p14,p13,p12, output p1,p2,p3,p4,p5,p6,p7,p9,p10,p11);
@@ -218,6 +225,13 @@ module sheet_d_reference #(parameter integer IC90_TYPE = 1, IC66_NAND = 0)(
     input        d_extend,
     input        d_coin_in_n,       // pad ED
     input  [3:0] d_s100,            // {D, C, B, A}
+    // Pro board (manual 420-0525 page 15, pro/docs/trace/SHEET_D_COMPARE.md
+    // and pro/docs/SHEETS_B_C_D_PRO_LOGIC.md): /DISPLAY and /D-GAME from B;
+    // d_extend is then D-EXTEND. With d_pro low the Pro parts are cut off
+    // and the sheet is the original.
+    input        d_pro, d_display_n, d_d_game_n,
+    output       d_time, slow, belt, slip, c100,
+    output [7:0] dbg_pro,
     // Outputs, as the RTL's
     output       side_line_n, tree_grass_g_n, tree_grass_bl_n, grass_area_n, grass_w_n,
     output       house_st_n,
@@ -231,9 +245,35 @@ module sheet_d_reference #(parameter integer IC90_TYPE = 1, IC66_NAND = 0)(
     wire [8:0] mh = d_mh;
     wire [7:0] m1v = d_m1v, m2v = d_m2v;
 
+    // ------------------------------------------------------------ Pro input stage
+    // 74157 IC34 (S 1 = /DISPLAY, /G 15 GND), 74393 IC41 (1CLK 1, 1CLR 2,
+    // 2CLK 13, 2CLR 12), 7486 IC113 (9, 10 -> 8), 7404 IC36 (1 -> 2, 5 -> 6).
+    // Pro designators, prefixed p (the original numbers are used below).
+    wire n40_9;                                      // HSB flip-flop Q (pin 9)
+    wire [3:0] p41a_q, p41b_q;                       // QA..QD: pins 3..6, 11..8
+    wire p41_mr = d_pro ? d_display_n : vcc;
+    rd_74393_half p41a(.ck_in(n40_9),.mr_in(p41_mr),.q(p41a_q));
+    rd_74393_half p41b(.ck_in(p41a_q[3]),.mr_in(p41_mr),.q(p41b_q));
+    wire p113_8, p113_3, p113_6, p113_11;
+    rd_7486 p113(.p9(p41a_q[3]),.p10(p41a_q[2]),.p8(p113_8),
+        .p1(nc),.p2(nc),.p3(p113_3),.p4(nc),.p5(nc),.p6(p113_6),.p12(nc),.p13(nc),.p11(p113_11));
+    wire p36_2, p36_6, p36_4, p36_8, p36_10, p36_12, p34_4, p34_7, p34_9, p34_12;
+    rd_7404 p36(.p1(p113_8),.p2(p36_2),.p5(p34_12),.p6(p36_6),
+        .p3(nc),.p4(p36_4),.p9(nc),.p8(p36_8),.p11(nc),.p10(p36_10),.p13(nc),.p12(p36_12));
+    rd_74157 p34(.p1(d_display_n),.p15(gnd),
+        .p2(p41b_q[0]),.p3(d_s100[0]),.p4(p34_4),
+        .p5(p41b_q[1]),.p6(d_s100[1]),.p7(p34_7),
+        .p11(p41b_q[2]),.p10(d_s100[2]),.p9(p34_9),
+        .p14(p36_2),.p13(d_s100[3]),.p12(p34_12));
+    assign d_time = p41b_q[3];
+    assign dbg_pro = {p41b_q, p41a_q};
+    // The original has the pads straight on the 7442.
+    wire [3:0] dec_in = d_pro ? {p34_12, p34_9, p34_7, p34_4} : d_s100;
+    assign c100 = dec_in[2];
+
     // ------------------------------------------------------------ IC24, RA1
     wire n24_1, n24_2, n24_3, n24_4, n24_5, n24_6, n24_7, n24_9, n24_10, n24_11;
-    rd_7442 ic24(.p15(d_s100[0]),.p14(d_s100[1]),.p13(d_s100[2]),.p12(d_s100[3]),
+    rd_7442 ic24(.p15(dec_in[0]),.p14(dec_in[1]),.p13(dec_in[2]),.p12(dec_in[3]),
         .p1(n24_1),.p2(n24_2),.p3(n24_3),.p4(n24_4),.p5(n24_5),.p6(n24_6),.p7(n24_7),
         .p9(n24_9),.p10(n24_10),.p11(n24_11));
     assign car_no_cont_n = n24_6;
@@ -248,20 +288,22 @@ module sheet_d_reference #(parameter integer IC90_TYPE = 1, IC66_NAND = 0)(
     wire n34_10, n34_4, n34_13, n34_1;
     wire n112_7, n105_9;
     wire n31_9, n25_5;
-    rd_7402 ic34(.p8(n47_11),.p9(d_coin_in_n),.p10(n34_10),
+    // Pro: /D-GAME on pin 9 (Pro 63 pin 3)
+    rd_7402 ic34(.p8(n47_11),.p9(d_pro ? d_d_game_n : d_coin_in_n),.p10(n34_10),
         .p6(n31_9),.p5(n25_5),.p4(n34_4),
         .p11(n112_7),.p12(n105_9),.p13(n34_13),
         .p2(nc),.p3(nc),.p1(n34_1));
     assign tunnel_bridge_n = n34_4;
     assign tree_grass_bl_n = n34_13;
     // IC40: upper half GRAVEL (pins 1-6), lower half (pins 8-13, /CLR, /PR not drawn)
-    wire n40_5, n40_6, n40_9, n40_8;
+    wire n40_5, n40_6, n40_8;
     rd_7474_half ic40a(.clr_in(n34_10),.d(d_extend),.ck_in(n24_1),.pr_in(nc),.q(n40_5),.q_n(n40_6));
     rd_7474_half ic40b(.clr_in(nc),.d(n47_3),.ck_in(d_mhl_n),.pr_in(nc),.q(n40_9),.q_n(n40_8));
     // IC38: POOL half (pins 2-6, /CLR, /PR not drawn), other half (pins 9-13)
     wire n38_5, n38_6, n38_9, n38_8, n45_3, n31_8;
     rd_7474_half ic38a(.clr_in(nc),.d(n38_9),.ck_in(n40_9),.pr_in(nc),.q(n38_5),.q_n(n38_6));
-    rd_7474_half ic38b(.clr_in(n45_3),.d(n31_8),.ck_in(n47_6),.pr_in(nc),.q(n38_9),.q_n(n38_8));
+    // Pro: clocked by IC36 pin 6, NOT(IC34 pin 12); 7442 output 1 unused
+    rd_7474_half ic38b(.clr_in(n45_3),.d(n31_8),.ck_in(d_pro ? p36_6 : n47_6),.pr_in(nc),.q(n38_9),.q_n(n38_8));
     // IC31: SLIP (pins 1-6) and TUNNEL (pins 8-13)
     wire n31_5, n31_6;
     rd_7474_half ic31a(.clr_in(n34_10),.d(n38_6),.ck_in(n24_3),.pr_in(nc),.q(n31_5),.q_n(n31_6));
@@ -270,9 +312,11 @@ module sheet_d_reference #(parameter integer IC90_TYPE = 1, IC66_NAND = 0)(
     // IC25: lower half (pins 1-6), upper half EXT. 500 (pins 8-13)
     wire n25_6, n25_9, n25_8;
     rd_7474_half ic25a(.clr_in(n34_10),.d(n25_9),.ck_in(n24_6),.pr_in(nc),.q(n25_5),.q_n(n25_6));
-    rd_7474_half ic25b(.clr_in(n45_3),.d(d_extend),.ck_in(n24_5),.pr_in(nc),.q(n25_9),.q_n(n25_8));
+    // Pro: /CLR on 7442 output 6 (pin 7)
+    rd_7474_half ic25b(.clr_in(d_pro ? n24_7 : n45_3),.d(d_extend),.ck_in(n24_5),.pr_in(nc),.q(n25_9),.q_n(n25_8));
     assign ext500 = n25_9;
     assign ext500_n = n25_8;
+    assign slip = n31_5;                             // Pro pad EH
     // IC45 (1, 2 -> 3)
     wire n45_6, n45_8, n45_11;
     rd_7400 ic45(.p1(n40_8),.p2(n38_5),.p3(n45_3),
@@ -280,6 +324,11 @@ module sheet_d_reference #(parameter integer IC90_TYPE = 1, IC66_NAND = 0)(
     // IC32 (7425 section 1; strobe pin 3 not drawn)
     wire n32_6;
     rd_7425a ic32(.p5(n31_5),.p2(n31_9),.p4(n25_5),.p1(n40_5),.p3(nc),.p6(n32_6));
+    // Pro: SLOW, an inverter (5 -> 6, designator unread) on IC32's output
+    wire p9_6, p9_2, p9_4, p9_8, p9_10, p9_12;
+    rd_7404 p9(.p5(n32_6),.p6(p9_6),
+        .p1(nc),.p2(p9_2),.p3(nc),.p4(p9_4),.p9(nc),.p8(p9_8),.p11(nc),.p10(p9_10),.p13(nc),.p12(p9_12));
+    assign slow = p9_6;
     // IC49 (74393 second half)
     rd_74393_half ic49(.ck_in(n40_8),.mr_in(n32_6),.q({n49_8,n49_9,n49_10,n49_11}));
     // IC39 (12, 13 -> 11)
@@ -473,6 +522,7 @@ module sheet_d_reference #(parameter integer IC90_TYPE = 1, IC66_NAND = 0)(
     rd_7427 ic60(.p9(n112_9),.p10(n105_7),.p11(n58_11),.p8(n60_8),
         .p1(nc),.p2(nc),.p13(nc),.p12(n60_12),.p3(nc),.p4(nc),.p5(nc),.p6(n60_6));
     assign tree_grass_g_n = n60_8;
+    assign belt = n58_11;                            // Pro: BELT (C), a branch of this net
     rd_7408 ic58(.p2(n88_8),.p1(n22_6),.p3(n58_3),
         .p5(n80_1),.p4(d_v4dec_n),.p6(n58_6),
         .p13(n119_7),.p12(n80_10),.p11(n58_11),

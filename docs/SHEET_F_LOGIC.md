@@ -118,7 +118,7 @@ same pseudo-random stimulus on the real sheet E raster:
   {A, B} = 11, 01, 00, 10 full) is inferred from IC7's comparison word, not
   read from the drawing.
 
-Results on 26 October 2026 (logs in the working notes (not published)):
+Results on 26 October 2026 (logs in `reports/sheet-f-2026-10-26/`):
 
 | Run | Frames | Pixels compared | Notes |
 |---|---|---|---|
@@ -143,3 +143,58 @@ simulation result: no hardware run includes this module yet.
   reproduced; the reference represents C3, C16 and C17 by its clock
   filters.
 - The crash-moment race above.
+
+## Pro board
+
+Pro Monaco GP (manual 420-0525, sheet F, PDF page 9) adds one gate to the
+score output for the bonus circuit of sheet N, read in
+`pro/docs/trace/SHEET_F_BONUS_TRACE.md` (rows F01–F06). The module takes it
+behind a `pro` input (1 = Pro board); with `pro` = 0 `bonus_point_n` is
+ignored and every output is as above.
+
+- **/SCORE CP (pad A14).** The normal score NAND (IC8 pins 9, 10 -> 8 here)
+  goes to the lower input 9 of a combining gate, the Pro board's IC8 (OR
+  body, bubbled inputs and output: an AND). /BONUS POINT (N) is its other
+  input. Its output 8 goes through the noninverting buffer B17 (5 -> 6) to
+  A14: `/SCORE CP = /BONUS POINT AND NOT(/SCORE ST AND Y)`, Y being the
+  IC4 (74151) output. Each /BONUS POINT low pulse while the normal NAND is
+  high is one falling edge, one point on sheet I's ones decade. There is no
+  queue: overlapping low intervals make one edge.
+- The score divider's clear is /GAME on both boards: no change there.
+
+Ports: `pro`, `bonus_point_n` in, captured with the other inputs. In
+`jtmonacogp_game.v` they are tied inactive (`pro` = 0, `bonus_point_n` = 1)
+until sheet N is connected (#36).
+
+`tests/sheet_f_reference.v` has the gate (instances `pro_ic8`, a 7408
+section, and `pro_ic19`, the 7417 buffer B17), selected by `f_pro`, and an
+observation port `score_nand` for the normal NAND's output. `tests/tb_control.v`
+drives /BONUS POINT in every run as short low pulses from a random sequence
+of its own (the rest of the stimulus is unchanged) and checks, every
+compared pixel, `/SCORE CP = score_nand AND (/BONUS POINT OR NOT pro)` on
+the reference; /SCORE CP is already compared with the RTL. With `pro` = 1
+some bonus pulses must make a falling edge of their own; with `pro` = 0
+none may. `control`, `control_fast` and `control_crash` run with `pro` = 0,
+the new `control_pro` (`tb_control_pro`, as `control_fast`) with `pro` = 1.
+
+Results on 5 November 2026 (Icarus Verilog, run as `scripts/run_tests.py`
+does):
+
+| Run | `pro` | Frames | Pixels compared | Notes |
+|---|---|---|---|---|
+| `control_fast` | 0 | 106 | 12 639 960 | as in the table above; /BONUS POINT low 83 020 pixels (78 105 with the normal NAND high), 240 /SCORE CP falls, none from a bonus pulse |
+| `control` | 0 | 218 | 26 122 968 | as above; /BONUS POINT low 167 827 pixels, 1 800 falls, none from a bonus pulse |
+| `control_crash` | 0 | 137 | 16 371 864 | as above; /BONUS POINT low 106 094 pixels, 99 falls, none from a bonus pulse |
+| `control_pro` | 1 | 106 | 12 639 960 | the stages of `control_fast`; 2 621 /SCORE CP falls, 2 384 of them bonus pulses, RTL and reference equal |
+
+Open items (Pro):
+
+- The upper input numeral of the combining gate (11, or a damaged 10), the
+  normal NAND's package and pins, and B17's package label (probably 19) are
+  uncertain (trace U1); the reference uses pin 10 of a 7408 section, which
+  does not change the logic. Short faded stretches of the /BONUS POINT trunk
+  and of the Y -> NAND -> combining-gate route (U2) are read as continuous.
+- The other Pro differences found on sheet F (C54 470 pF on the clock
+  selector control, the pool one-shot's C32 22 µF instead of 15 µF) and the
+  game-over race with 0 or 15 stored bonuses (U5) are not part of this
+  change.

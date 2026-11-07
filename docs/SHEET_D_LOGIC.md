@@ -191,7 +191,7 @@ the same stimulus:
     IC90 read as drawn, and as two AND sections.
 
 Results on 29 October 2026 (logs and pictures in
-the working notes (not published)), with the original PROM set:
+`reports/sheet-d-2026-10-29/`), with the original PROM set:
 
 | Run | Frames | Pixels compared | Notes |
 |---|---|---|---|
@@ -220,7 +220,7 @@ the scenery have moved between them. `scenery-ic66nand-1.png` to `-4.png`
 show frames 21–24 of the `scenery_ic66nand` run, with the same stimulus:
 the same scenery with PR-137's /GRAVEL speckle, in tan, over the road and
 the verges. `ic66-nand-and.png` sets the first picture of each run side by
-side (left NAND, right AND). On 29 October the maintainer compared them with the real
+side (left NAND, right AND). On 29 October Aldo compared them with the real
 game, which shows the AND picture (in its own colours, which sheet C sets).
 
 Quartus 17.0 Lite Analysis & Synthesis of the module alone (Cyclone V

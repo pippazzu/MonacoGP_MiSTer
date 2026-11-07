@@ -1,7 +1,7 @@
 # Sound sheet D-6/7 — OTHER CAR sound generators
 
 Source: Sega **Monaco GP (420-0358)**, PDF page **20**,
-manual 420-0358, PDF page 20, **10176 × 6624**, 600 dpi, stored **upright**
+`schematics/pages/page20-sound-D6.png`, **10176 × 6624**, 600 dpi, stored **upright**
 (no rotation needed). Title block: "96598-P (D-6/7) OSCILLATOR"; circled
 page caption "OTHER CAR SOUND"; top-left sheet mark "Ⓢ - MONACO GP".
 Printed notes: "OP AMP は LM324" (op-amps are LM324), "NS製の用"-like note

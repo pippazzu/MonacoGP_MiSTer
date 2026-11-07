@@ -28,7 +28,7 @@ JTFRAME_OSD_FLIP
 # (right) to turn right and bit 1 (left) to turn left; a spinner or the
 # mouse turns it too. Joystick emulation steps the dial 16 times a frame at
 # the highest sensitivity (12, 8 and 4 at the others): four handle pulses a
-# frame. JTFRAME's default, 8 (two pulses), was doubled on request
+# frame. JTFRAME's default, 8 (two pulses), was doubled at Aldo's request
 # (3 November 2026); the handle board keeps up (one pulse per four steps,
 # checked at 16 steps on consecutive lines).
 JTFRAME_DIAL

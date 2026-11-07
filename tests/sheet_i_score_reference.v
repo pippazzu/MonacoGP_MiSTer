@@ -2,7 +2,7 @@
 // Independent pin-connected, event-driven reference for the score counter of
 // sheet I (manual 420-0358, PDF page 23): 7F, 8F (74390), 12F (7430), 13H
 // (7400), 13E (74279), 11C (7432), 11D and the RST inverter (7404), 2E-1
-// (7416). Wired by IC and pin number from docs/trace/SHEET_I_TRACE.md.
+// (7416). Wired by IC and pin number from docs/trace/work/SHEET_I_LOG.md.
 // Delays only enforce settling order; they are NOT measured TTL delays.
 `timescale 1ns/1ps
 `define ITTL(x) ((x) === 1'bz ? 1'b1 : (x))
@@ -34,19 +34,37 @@ module iref_279_1(input s_n, r_n, output reg q=0);
     always @* if (!`ITTL(s_n)) q <= #3 1; else if (!`ITTL(r_n)) q <= #3 0;
 endmodule
 
-module sheet_i_score_reference(
-    input         score_cp_n, coin_test_n, ini_reset_n,
+module iref_and2(input a, b, output y);   assign #2 y = `ITTL(a)&`ITTL(b);    endmodule
+
+// PRO = 1: the Pro board's score counter (manual 420-0525, sheet I, PDF page
+// 18; pro/docs/trace/SHEET_F_BONUS_TRACE.md rows I01-I05 and
+// pro/docs/trace/SHEET_I_TRACE.md, "Sequencer, resets and the write"):
+// /SCORE CP straight to IC75 pin 1 (no 9999 gate), and the RST trunk from
+// 91 (1, 2 -> 3, NAND) with 1 = /COIN & TEST and 2 = 73.11, 73 (12, 13 ->
+// 11) = AND(/INI. RESET, /RAM RESET). IC75 and IC84 are wired as 7F and 8F.
+// SP. CONT. and the S-100 lines keep the original's wiring (not traced on
+// Pro). ram_reset_n is unused with PRO = 0.
+module sheet_i_score_reference #(parameter integer PRO = 0)(
+    input         score_cp_n, coin_test_n, ini_reset_n, ram_reset_n,
     output [15:0] digits,
     output  [3:0] s100,
     output        s100_d2, sp_cont
 );
-    wire rst_t, n9999, g, s13e_n, rst_n, ic11d_12, ic11c_11;
-    // 13H sections
-    iref_nand2 h13b(.a(coin_test_n), .b(ini_reset_n), .y(rst_t));   // drawn OR with input bubbles
-    iref_nand2 h13a(.a(score_cp_n), .b(n9999), .y(g));              // 12, 13 -> 11
-    // 7F, 8F
+    wire rst_t, n9999, g, s13e_n, rst_n, ic11d_12, ic11c_11, ck;
+    generate if (PRO) begin : g_pro
+        wire p73_11;
+        iref_and2  p73(.a(ini_reset_n), .b(ram_reset_n), .y(p73_11));  // 73 12, 13 -> 11
+        iref_nand2 p91(.a(coin_test_n), .b(p73_11), .y(rst_t));         // 91 1, 2 -> 3
+        assign ck = score_cp_n;                                         // H16 -> IC75 1
+    end else begin : g_orig
+        // 13H sections
+        iref_nand2 h13b(.a(coin_test_n), .b(ini_reset_n), .y(rst_t));   // drawn OR with input bubbles
+        iref_nand2 h13a(.a(score_cp_n), .b(n9999), .y(g));              // 12, 13 -> 11
+        assign ck = g;
+    end endgenerate
+    // 7F, 8F (Pro: IC75, IC84)
     wire [3:0] p1, p2, p3, p4;
-    iref_74390 f7(.p1(g), .p2(rst_t), .p4(p1[0]), .p15(p1[3]), .p14(rst_t), .p12(p2[0]),
+    iref_74390 f7(.p1(ck), .p2(rst_t), .p4(p1[0]), .p15(p1[3]), .p14(rst_t), .p12(p2[0]),
         .p3(p1[0]), .p5(p1[1]), .p6(p1[2]), .p7(p1[3]), .p13(p2[0]), .p11(p2[1]), .p10(p2[2]), .p9(p2[3]));
     iref_74390 f8(.p1(p2[3]), .p2(rst_t), .p4(p3[0]), .p15(p3[3]), .p14(rst_t), .p12(p4[0]),
         .p3(p3[0]), .p5(p3[1]), .p6(p3[2]), .p7(p3[3]), .p13(p4[0]), .p11(p4[1]), .p10(p4[2]), .p9(p4[3]));

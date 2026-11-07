@@ -291,7 +291,7 @@ Coordinates are stored-image pixels. This section **supersedes** the
 structural reading above for the sequencer, memory, comparators and rank
 logic (items 3–5 and 7–11 of the signal path and the corresponding pin
 tables); the earlier text is kept as written. The score counter and the
-S-100 / SP. CONT. outputs are in the working notes (not published) (31 October), which
+S-100 / SP. CONT. outputs are in `work/SHEET_I_LOG.md` (31 October), which
 this section continues. Logic and tests: [../SHEET_I_LOGIC.md](../SHEET_I_LOGIC.md).
 
 ### Reset, power-up delay, sequencer
@@ -365,6 +365,6 @@ its designator still collides with the 7402s named 13F.
 ### Correction
 
 7H's DOWN (pin 4) is drawn on 12D's QD. The real board behaves as if it
-were the inverse (the maintainer's photo of the panel, 1 November 2026: 1ST flashes
+were the inverse (Aldo's photo of the panel, 1 November 2026: 1ST flashes
 for a new best score). See [../SHEET_I_LOGIC.md](../SHEET_I_LOGIC.md),
 "The correction: 7H's DOWN clock".

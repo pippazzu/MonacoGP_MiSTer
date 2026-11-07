@@ -299,6 +299,9 @@ module sheet_f_reference #(
     input f_sp_down_n, f_sp_down, f_score_st_n, f_acc1_st_n, f_acc1_pulse_n, f_player,
     input f_acce_a, f_acce_b, f_han_l, f_han_r, f_shift_no, f_shift_nc,
     input f_ic27_3,                             // IC27 pin 3 is not drawn
+    // Pro board: f_pro = 1 selects the Pro score output (manual 420-0525,
+    // pro/docs/trace/SHEET_F_BONUS_TRACE.md), with /BONUS POINT from sheet N
+    input f_pro, f_bonus_point_n,
     // Sheet-edge outputs
     output pl_h_st, pl_v_st, shift, slipzone_n, nonroad_slip_n, acce_st,
     output [3:0] acce, s_acce,
@@ -309,7 +312,8 @@ module sheet_f_reference #(
     output [7:0] ic19_q, ic40_q,
     output [6:0] hpos_t,
     output [7:0] vpos_t,
-    output [36:0] state
+    output [36:0] state,
+    output score_nand                           // the normal score NAND's output
 );
     wire nc;
     wire ic1_4, ic1_5, ic1_12, ic1_13;
@@ -534,6 +538,25 @@ module sheet_f_reference #(
     rf_7410 ic80(.p1(ic6_2),.p2(ic62_3),.p13(f_ext_car_cont),.p3(f_acc1_st_n),.p4(ic14_8),
         .p5(f_player),.p9(1'b0),.p10(1'b0),.p11(1'b0),.p12(ic80_12),.p6(ic80_6),.p8());
 
+    // ------------------------------------------------------------ Pro board
+    // Sheet F of manual 420-0525 (PDF page 9), rows F01-F06 of
+    // pro/docs/trace/SHEET_F_BONUS_TRACE.md. IC numbers are the Pro board's.
+    // The normal NAND (GS; IC8 pins 9, 10 -> 8 above) goes to the lower
+    // input 9 of the combining gate GB, the Pro board's IC8 (OR body with
+    // bubbled inputs and output: AND). /BONUS POINT (N) is its upper input,
+    // read 11 or a damaged 10 (U1): pin 10 of a 7408 section here, not a
+    // certified reading. GB.8 goes to B17 (bank "17 x 6", package probably
+    // 19) pin 5; pin 6 is pad A14.
+    wire pgb_3, pgb_6, pgb_8, pgb_11;
+    rf_7408 pro_ic8(.p9(ic8_8),.p10(f_bonus_point_n),.p8(pgb_8),
+        .p1(1'b0),.p2(1'b0),.p4(1'b0),.p5(1'b0),.p12(1'b0),.p13(1'b0),
+        .p3(pgb_3),.p6(pgb_6),.p11(pgb_11));
+    wire pb17_2, pb17_4, pb17_6, pb17_8, pb17_10, pb17_12;
+    rf_7417 pro_ic19(.p5(pgb_8),.p6(pb17_6),
+        .p1(1'b0),.p3(1'b0),.p9(1'b0),.p11(1'b0),.p13(1'b0),
+        .p2(pb17_2),.p4(pb17_4),.p8(pb17_8),.p10(pb17_10),.p12(pb17_12));
+    assign score_nand = ic8_8;
+
     // Sheet-edge outputs
     assign pl_h_st = ic17_6;
     assign pl_v_st = ic41_6;
@@ -543,7 +566,7 @@ module sheet_f_reference #(
     assign acce_st = ic34_6;
     assign acce = {ic6_12, ic15_6, ic15_2, ic15_3};
     assign s_acce = {ic13_2, ic13_4, ic13_6, ic13_8};
-    assign score_cp_n = ic13_10;
+    assign score_cp_n = f_pro ? pb17_6 : ic13_10;
     assign s_acc1_n = ic13_12;
     assign acc1_n = ic16_3;
     assign splay_a_n = ic48_8;

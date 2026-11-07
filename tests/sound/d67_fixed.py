@@ -13,8 +13,9 @@ a stated resistance. The floating-point model (d67_model.py) supplies every
 value; this file only quantizes it.
 
   d67_fixed.py vh DIR      write jtmonacogp_snd_d67.vh into DIR
-  d67_fixed.py check [S]   compare with the floating-point model (scenario
-                           of d67_reference.py, S seconds, default 3)
+  d67_fixed.py check [S [R]] compare with the floating-point model (scenario
+                           of d67_reference.py, S seconds, default 3;
+                           R: the R109 option, d67_model.R109_OPTIONS)
 """
 import math
 import sys
@@ -86,6 +87,11 @@ K_RB=Coef("KRB",(M.K_P17/51e3)/(1/6.8e3+1/2.7e3+2/51e3))
 K_RD=Coef("KRD",(1/102e3)/(1/5.1e3+1/1e3+2/102e3))
 K_R6=Coef("KR6",M3.R_SCHFB/(M3.R_SCH6+M3.R_SCHFB))      # cells: vplus from r6
 K_CON=[Coef(f"KCON{n}",g*DT/M.C_CON,FS) for n,g in ((1,BANK_G[0]),(2,BANK_G[1]))]
+# bank 1 with the other R109 options (d67_model.R109_OPTIONS; the Verilog's
+# parameter R109 = 1, 2 picks KCON1R1, KCON1R2); option 0 is KCON1
+_rbt1=M.BANK_BIAS[1][0]
+K_CON1R=[K_CON[0]]+[Coef(f"KCON1R{k}",(1/_rbt1+1/r+1/P.MC_CTL_R)*DT/M.C_CON,FS)
+                    for k,r in enumerate(M.R109_OPTIONS) if k>0]
 K_R6A=Coef("KR6A",2*DT/(1e3*M.R6_C),FS)
 K_R6B=Coef("KR6B",DT/(51e3*M.R6_C),FS)
 _kn=1+2*P.R_MC_OUT/M.MC_RIN
@@ -101,7 +107,7 @@ K_QBB=Coef("KQBB",DT/(M.R_BACK*M.C_B),FS)
 K_IF=Coef("KIF",M.R426/M.R_FRONT)                # front current times R426
 K_MF=Coef("KMF",22e3/M.R409)                     # R409 current times R414
 K_15=Coef("K15C",DT/(M.R409*M.C15),FS)
-COEFS=KF+[K_P1,K_P2,K_Q1,K_Q2,K_REF,K_U,K_HA,K_HL,K_SA,K_SB,K_RB,K_RD,K_R6]+K_CON+ \
+COEFS=KF+[K_P1,K_P2,K_Q1,K_Q2,K_REF,K_U,K_HA,K_HL,K_SA,K_SB,K_RB,K_RD,K_R6]+K_CON+K_CON1R[1:]+ \
       [K_R6A,K_R6B,K_N1,K_N2,K_CIN,K_BFA,K_BFB,K_BFBO,K_BBA,K_BBB,K_BBBO,K_QA,K_QBF,
        K_QBB,K_IF,K_MF,K_15]+[F3.C_KA[0],F3.C_KA[1],F3.C_KA[2],F3.C_KB[0],F3.C_KB[1],
        F3.C_KB[2],F3.C_SCH,F3.C_KTH,F3.C_K64,F3.C_ICS]
@@ -150,8 +156,9 @@ def mc3340(mcin,con):
     return min(mco,c["MC_HI"]),ib+ic
 
 class BankFixed:
-    def __init__(self,no):
+    def __init__(self,no,r109=0):
         c=C; self.no=no
+        self.kcon=K_CON1R[r109] if no==1 else K_CON[1]
         self.cap=[0,0,0]; self.cmp=[c["VOL_C"]-c["CMP_OVER"]]*3; self.tr=[False]*3
         self.qcon=0; self.q64=0; self.inl=0
     def step(self,cv,r6):
@@ -174,7 +181,7 @@ class BankFixed:
             outs.append(vout)
         o1,o2,o3=outs
         con=o1-(self.qcon>>SW)
-        self.qcon+=K_CON[self.no-1](con)-c[f"CON_I0_{self.no}"]
+        self.qcon+=self.kcon(con)-c[f"CON_I0_{self.no}"]
         if o2>=o3: hi_,d=o2,o3-o2
         else: hi_,d=o3,o2-o3
         top=hi_+tab("SOFT",-d)
@@ -280,9 +287,10 @@ class CtlFixed:
                     cv2=clamp(c["CV2_0"]-con34,c["VOL"],c["CV_MAX"]),ref14=self.ref14>>SW)
 
 class D67Fixed:
-    def __init__(self):
+    def __init__(self,r109=0):
+        """r109: the R109 option (d67_model.R109_OPTIONS; 0, as drawn)."""
         self.ctl=CtlFixed()
-        self.banks=[BankFixed(1),BankFixed(2)]
+        self.banks=[BankFixed(1,r109),BankFixed(2)]
         self.paths=[PathFixed(True),PathFixed(False),PathFixed(True),PathFixed(False)]
         self.r6=C["R6_0"]<<SW
         self.q15=0
@@ -357,12 +365,12 @@ SBITS=F3.SBITS
 
 KEYS=("r14","r28","u1","u2","con20","con19","con34","con33","cv1","cv2","con1","con2",
       "o1","o2","o3","snd1","snd2","front","r6")
-def check(seconds=3.0):
+def check(seconds=3.0,r109=0):
     """Run both models through the reference scenario; report the largest
     differences and the trigger steps."""
     import d67_reference as R
     n=int(round(seconds*P.TICK_HZ))
-    a=M.D67(); b=D67Fixed(); s=1.0/(1<<FV)
+    a=M.D67(r109=r109); b=D67Fixed(r109); s=1.0/(1<<FV)
     worst={}; trig={"a":[],"b":[]}
     pa=pb=(False,False)
     for k in range(n):
@@ -384,4 +392,5 @@ def check(seconds=3.0):
 
 if __name__=="__main__":
     if sys.argv[1]=="vh": write_vh(Path(sys.argv[2])/"jtmonacogp_snd_d67.vh")
-    elif sys.argv[1]=="check": check(float(sys.argv[2]) if len(sys.argv)>2 else 3.0)
+    elif sys.argv[1]=="check": check(float(sys.argv[2]) if len(sys.argv)>2 else 3.0,
+                                       int(sys.argv[3]) if len(sys.argv)>3 else 0)

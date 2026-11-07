@@ -1,7 +1,7 @@
 # Sheet K — score display rank latches (96597-P, D-3/3)
 
 Source: Sega **Monaco GP (420-0358)**, PDF page **24**, circled **K**,
-manual 420-0358, PDF page 24, **10160 × 6624**, upright.
+`schematics/pages/page24-sheet-K-score.png`, **10160 × 6624**, upright.
 SHA-256: `5409e260ee934d8cdeb1a30a57d15c28859109c00e547fb38bcc0821b6f380b0`.
 Title: **96597-P SCORE DISPLAY IC BOARD ASS'Y (D-3/3)**.
 
@@ -18,7 +18,7 @@ identify bus taps; a plain crossing is not a connection. Short unused pin
 stubs are distinguished from nearby vertical rails. A clear connection is
 a visual source reading, not a result inferred from expected operation.
 
-The previous pass (kept as the working notes (not published)) used the schematic tools net extraction, which
+The previous pass (kept as `work/SHEET_K_LOG.md`) used `tools/schematic/` net extraction, which
 merged several adjacent bus lines through lettering/smears. Those historical
 results are not independent confirmation of the affected nodes. The current
 pass used overlapping source crops and did not rerun that extractor.
@@ -168,8 +168,8 @@ The earlier 23 October comparison reached the same coverage limitation.
 
 This consolidated trace (prepared with ChatGPT, user readings K-V01) was
 checked on fresh crops of `page24-sheet-K-score.png` by a second reader.
-The first pass is kept unchanged as the working notes (not published); the review crops
-and their coordinates are in the working notes (not published).
+The first pass is kept unchanged as `work/SHEET_K_LOG.md`; the review crops
+and their coordinates are in `work/sheet-jk-review/`.
 
 Confirmed on the scan:
 

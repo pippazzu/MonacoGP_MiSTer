@@ -10,23 +10,31 @@
 // 9999. Coverage: every hundreds digit with tens below and above 40 (the
 // S-100-D rule), SP. CONT. set at 6000 and cleared by a reset, the score
 // held at 9999 while pulses keep coming.
+//
+// PRO = 1 (tb_score_pro): the Pro board's counter (no 9999 stop, RST with
+// /RAM RESET), with a RAM RESET now and then too. Coverage as above, but the
+// score wrapping from 9999 to 0000 instead of held, and RAM RESET clearing
+// it.
 `timescale 1ns/1ps
-module tb_score #(parameter integer PIXELS = 3000000, parameter [31:0] SEED = 32'h53434f52);
+module tb_score #(parameter integer PIXELS = 3000000, parameter [31:0] SEED = 32'h53434f52,
+                  parameter integer PRO = 0);
     reg clk = 0, rst = 1;
     always #10.416666667 clk = ~clk;
     wire pcen, p2cen;
     jtmonacogp_cen u_cen(.clk(clk),.cen14(p2cen),.cen7(pcen));
-    reg scp_n = 1, ct_n = 1, ir_n = 1;
+    reg scp_n = 1, ct_n = 1, ir_n = 1, rr_n = 1;
     wire [15:0] d, rd;
     wire [3:0] s, rs;
     wire s2, rs2, sp, rsp;
     jtmonacogp_score dut(.clk(clk),.rst(rst),.pxl_cen(pcen),.score_cp_n(scp_n),.coin_test_n(ct_n),
-        .ini_reset_n(ir_n),.digits(d),.s100(s),.s100_d2(s2),.sp_cont(sp));
-    sheet_i_score_reference reff(.score_cp_n(scp_n),.coin_test_n(ct_n),.ini_reset_n(ir_n),
-        .digits(rd),.s100(rs),.s100_d2(rs2),.sp_cont(rsp));
+        .ini_reset_n(ir_n),.pro(PRO != 0),.ram_reset_n(rr_n),.digits(d),.s100(s),.s100_d2(s2),.sp_cont(sp));
+    sheet_i_score_reference #(.PRO(PRO)) reff(.score_cp_n(scp_n),.coin_test_n(ct_n),.ini_reset_n(ir_n),
+        .ram_reset_n(rr_n),.digits(rd),.s100(rs),.s100_d2(rs2),.sp_cont(rsp));
     integer seed = SEED, n = 0, gap = 0, len = 0, held = 0, sp_set = 0, sp_clr = 0;
+    integer wraps = 0, rr_clr = 0;
     reg [19:0] seen = 0;        // {hundreds digit, tens >= 40}
     reg sp_l = 0, cen_d = 0, scp_l = 1;
+    reg [15:0] d_l = 0;
     function integer rnd(input integer k); rnd = ($random(seed) & 32'h7fffffff) % k; endfunction
     // compare one clock after the enable
     always @(posedge clk) begin
@@ -39,6 +47,11 @@ module tb_score #(parameter integer PIXELS = 3000000, parameter [31:0] SEED = 32
             if (sp && !sp_l) sp_set = sp_set + 1;
             if (!sp && sp_l) sp_clr = sp_clr + 1;
             sp_l = sp;
+            if (PRO) begin
+                if (d_l == 16'h9999 && d == 16'h0000 && ct_n && ir_n && rr_n) wraps = wraps + 1;
+                if (!rr_n && d_l != 0 && d == 0) rr_clr = rr_clr + 1;
+                d_l = d;
+            end
         end
     end
     initial begin
@@ -59,13 +72,23 @@ module tb_score #(parameter integer PIXELS = 3000000, parameter [31:0] SEED = 32
             if (scp_n == scp_l) begin
                 ct_n = !(rnd(400000) == 0 && n < PIXELS * 3 / 4);
                 ir_n = !(rnd(900000) == 0 && n < PIXELS * 3 / 4);
+                if (PRO) rr_n = !(rnd(300000) == 0 && n < PIXELS * 3 / 4);
             end
         end
-        $display("PASS score: %0d pixels match the pin-wired sheet I score reference", PIXELS);
-        $display("  SP. CONT. set %0d times, cleared %0d; %0d pixels of score pulses held at 9999",
-                 sp_set, sp_clr, held);
-        if (seen != 20'hfffff || sp_set == 0 || sp_clr == 0 || held == 0)
-            $fatal(1, "coverage: hundreds/tens cases %b", seen);
+        if (!PRO) begin
+            $display("PASS score: %0d pixels match the pin-wired sheet I score reference", PIXELS);
+            $display("  SP. CONT. set %0d times, cleared %0d; %0d pixels of score pulses held at 9999",
+                     sp_set, sp_clr, held);
+            if (seen != 20'hfffff || sp_set == 0 || sp_clr == 0 || held == 0)
+                $fatal(1, "coverage: hundreds/tens cases %b", seen);
+        end else begin
+            if (seen != 20'hfffff || sp_set == 0 || sp_clr == 0 || wraps == 0 || rr_clr == 0)
+                $fatal(1, "coverage: hundreds/tens cases %b, SP. CONT. set %0d cleared %0d, wraps %0d, RAM RESET clears %0d",
+                       seen, sp_set, sp_clr, wraps, rr_clr);
+            $display("PASS score_pro: %0d pixels match the pin-wired Pro sheet I score reference", PIXELS);
+            $display("  SP. CONT. set %0d times, cleared %0d; %0d wraps from 9999 to 0000, %0d clears by RAM RESET",
+                     sp_set, sp_clr, wraps, rr_clr);
+        end
         $finish;
     end
 endmodule

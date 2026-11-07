@@ -10,7 +10,7 @@ pixels, upright. Source PNG SHA-256:
 **Status: whole-sheet transcription, consolidated into one scan-checked pin
 list on 29 October 2026 (next section).** Every pin-to-pin claim below was made by following the ink on
 full-resolution crops, assisted by the net-extraction tools in
-the schematic tools (netx/q/near/dotsize); long-wire junctions were
+`reference/tools/schematic/` (netx/q/near/dotsize); long-wire junctions were
 measured with `dotsize.py` (on this sheet a drawn junction dot measures about
 22–34 px, a plain crossing 8–19 px; everything in the 15–19 px band was also
 checked by eye). Rows marked **uncertain** must not be used as settled facts;

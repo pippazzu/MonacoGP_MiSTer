@@ -35,7 +35,7 @@ C3 i1m2 lfo 0.47u
 XIC1a i1p3 i1m2 lfo v12 0 LM324
 R5 i1m2 c1 51k
 R17 v6 i1p5 100k
-R19 i1p5 o1_7 100k
+R19 i1p5 o1_7 180k
 XIC1b i1p5 lfo o1_7 v12 0 LM324
 R18 o1_7 n18 10k
 D1 n18 b1 DMA150

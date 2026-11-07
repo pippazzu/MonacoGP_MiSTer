@@ -63,7 +63,7 @@ class Build:
                 # vibrato: C3's step with TR1 off / on (state units), the
                 # IC1 b thresholds with its output high / low, the start
                 "DL_OFF":sq(i14*DT/0.47e-6),"DL_ON":sq((i14-i5)*DT/0.47e-6),
-                "TH_H":vq((M.V6+M.O1_7_HIGH)/2),"TH_L":vq((M.V6+M.VOL)/2),
+                "TH_H":vq(M.schmitt_ic1b(M.O1_7_HIGH)),"TH_L":vq(M.schmitt_ic1b(M.VOL)),
                 "LFO0":sq(v3),
                 # envelope
                 "VQ":vq(M.TTL_VOH),"N50A":sq(M.VCC/2.7e3*DT/47e-6)}

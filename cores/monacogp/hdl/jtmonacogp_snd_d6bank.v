@@ -12,8 +12,11 @@
 // D-7 inputs is jtmonacogp_snd_d7car's), and `svp`, the sum of the three
 // comparators' + inputs (their 51K load on the half-rail).
 // One step per `start`; `done` after about 75 clocks.
+// R109 (bank 1 only) is an option, not a reading: 0 = .33K as drawn (the
+// default), 1 = 3.3K (R81's value), 2 = 33K (Monza's redraw); see
+// docs/sound/OTHER_CAR_COMPARE.md.
 // tests/sound/d67_fixed.py (BankFixed) is the same arithmetic.
-module jtmonacogp_snd_d6bank #(parameter NO = 1) (
+module jtmonacogp_snd_d6bank #(parameter NO = 1, parameter R109 = 0) (
     input                    clk,
     input                    rst,
     input                    start,
@@ -27,8 +30,10 @@ module jtmonacogp_snd_d6bank #(parameter NO = 1) (
 );
     `include "jtmonacogp_snd_d67.vh"
 
-    localparam signed [26:0] KCON_M = NO == 1 ? KCON1_M : KCON2_M;
-    localparam        [5:0]  KCON_S = NO == 1 ? KCON1_S : KCON2_S;
+    localparam signed [26:0] KCON1X_M = R109 == 1 ? KCON1R1_M : R109 == 2 ? KCON1R2_M : KCON1_M;
+    localparam        [5:0]  KCON1X_S = R109 == 1 ? KCON1R1_S : R109 == 2 ? KCON1R2_S : KCON1_S;
+    localparam signed [26:0] KCON_M = NO == 1 ? KCON1X_M : KCON2_M;
+    localparam        [5:0]  KCON_S = NO == 1 ? KCON1X_S : KCON2_S;
     localparam signed [51:0] CON_I0 = NO == 1 ? CON_I0_1 : CON_I0_2;
 
     localparam [4:0]

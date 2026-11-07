@@ -1,0 +1,47 @@
+# Pro Monaco GP bonus lamp PROMs PR-01 (IC55) and PR-02 (IC54), reconstruction
+#
+# RECONSTRUCTION, NOT A DUMP. No dump of PR-01 or PR-02 is known. These bytes
+# are a proposal derived from the sheet I wiring and the cabinet panel
+# description; the reasoning and every assumption are in LAMP_PROMS.md.
+# Issue #69, 6 November 2026.
+#
+# Part: 32 x 8 open-collector bipolar PROM, drawn as "3188"
+# (74S188 / 82S23 family). Pin 15 /G (drawn to LAMP RET, taken as enabled).
+#
+# Address (sheet I, PDF page 18):
+#   A0 pin 10 = BONUS A (LSB)   A1 pin 11 = BONUS B
+#   A2 pin 12 = BONUS C         A3 pin 13 = BONUS D (MSB of the count)
+#   A4 pin 14 = V2 (pad HH)
+#   address = 16 * V2 + count
+#   V2 = 0: count = IC132, cars overtaken (sheet N, IC133 selects A inputs)
+#   V2 = 1: count = IC140, stored bonuses
+#
+# Bit order: bit 0 = O1 (pin 1), ..., bit 6 = O7 (pin 7), bit 7 = O8 (pin 9).
+# (National DM74S188 names these Q0..Q7; Q0 = pin 1 = bit 0.)
+# Open-collector outputs: 0 = output sinks = lamp ON (if its common is on);
+#                         1 = output off   = lamp OFF.
+# An unprogrammed 74S188 reads 0 everywhere (all lamps on, common TR16).
+#
+# Lamp lines (bar position k = 1..15, k = 1 lights first):
+#   PR-01 O1..O8 (pins 1-7, 9) -> R60..R53 -> G37..G30 -> unit pins 3..10  = k 1..8
+#   PR-02 O1..O7 (pins 1-7)    -> R52..R46 -> Gl..Gt   -> unit pins 11..17 = k 9..15
+#   PR-02 O8 (pin 9) = common select:
+#     0 -> TR16 on, common G26;  1 -> inverter 37 -> TR13 on, common Gd
+#
+# Proposed contents: bar graph, lamps 1..n lit for a count of n (n = 0..14),
+# and lamps 1..14 for 15: the cabinet has 14 lamps a bar (Aldo, 6 November
+# 2026, #112), so element line 15 (unit pin 17) is never lit;
+# O8 = V2, so G26 serves the cars-overtaken section and Gd the bonus section
+# (this choice is arbitrary; see LAMP_PROMS.md).
+#
+# PR-01 (IC55), address 0..31, 8 bytes per line:
+ff fe fc f8 f0 e0 c0 80
+00 00 00 00 00 00 00 00
+ff fe fc f8 f0 e0 c0 80
+00 00 00 00 00 00 00 00
+#
+# PR-02 (IC54), address 0..31, 8 bytes per line:
+7f 7f 7f 7f 7f 7f 7f 7f
+7f 7e 7c 78 70 60 40 40
+ff ff ff ff ff ff ff ff
+ff fe fc f8 f0 e0 c0 c0

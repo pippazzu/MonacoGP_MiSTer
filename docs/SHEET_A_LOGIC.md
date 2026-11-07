@@ -25,7 +25,7 @@ the parts. Signal names are the drawn labels.
   IC21 while IC20's /BO is high, so IC21 counts at each rise, the first one
   as GAME releases the reset: 90 turns to 89 at once. IC21 and IC20 count
   down from 90. The module's 555 timings come from a 59.94 fps video of a
-  real game (30 October): 89 shows for 1 s 28 frames (the first high
+  real game (Aldo, 30 October): 89 shows for 1 s 28 frames (the first high
   phase and a low one), 23 for 64 frames, 01 for 1 s 1 frame, and a game
   takes about 93 s. The single seconds differ by a few frames (frame
   edges), so a later count is taken from the whole game: 1.039 s. With the
@@ -144,8 +144,64 @@ result: no hardware run includes this module yet.
   power-up hold of A.
 - A30 comes from sheet I (score board, "S-100-D'"); which score step it
   marks, and so how many points earn an extend, is for sheet I. On the real
-  game extended play is earned with points and lasts until the lives
+  game (Aldo) extended play is earned with points and lasts until the lives
   run out, which matches the wiring here: A30 earns it, and GAME OVER from
   sheet M ends it.
 - The CREDIT switch's upper pad letter (AQ?) and the two time-digit pad
   names remain as in the trace's open items.
+
+## Pro board
+
+Pro Monaco GP (manual 420-0525, sheet A, PDF page 8) adds two gates for the
+bonus circuit of sheet N, read in `pro/docs/trace/SHEET_A_BONUS_TRACE.md`
+(rows A01–A08). The module takes them behind a `pro` input (1 = Pro board);
+with `pro` = 0 the new inputs are ignored and every output is as above.
+
+- **EX. CP (pad A29).** The three-input AND of V2, Vs/16 and the IC49 Q
+  (IC53 on Pro) goes through an added OR, IC59 (7432, 2, 1 -> 3), with
+  BONUS SOUND (N), then buffer 46 to A29:
+  `EX. CP = (V2 AND Vs/16 AND Q) OR BONUS SOUND`. The bonus therefore uses
+  the sound board's extended-play input.
+- **The sound board's /COIN IN (pad A28).** A NAND, IC35 (9, 10 -> 8), of
+  /COIN IN and /BONUS CP (N), then an inverting buffer (13 -> 12) to A28:
+  `A28 = /COIN IN AND /BONUS CP`. A new output, `snd_coin_in_n`, carries
+  it; with `pro` = 0 it equals /COIN IN (IC31, 7407). The game logic keeps
+  the plain /COIN IN.
+
+Ports: `pro`, `bonus_sound`, `bonus_cp_n` in, `snd_coin_in_n` out. They are
+captured and registered with the other inputs and outputs (one pixel late).
+In `jtmonacogp_game.v` the sound board takes `snd_coin_in_n` instead of
+/COIN IN, and the new inputs are tied inactive (`pro` = 0, `bonus_sound` =
+0, `bonus_cp_n` = 1) until sheet N is connected (#36).
+
+`tests/sheet_a_reference.v` has the same gates, wired by the Pro trace's pin
+numbers (instances `pro_ic59`, `pro_ic46`, `pro_ic35`, `pro_a28buf`) and
+selected by `a_pro`. `tests/tb_coin.v` drives BONUS SOUND and /BONUS CP in
+every run from a random sequence of their own (the rest of the stimulus is
+unchanged), compares `snd_coin_in_n` with the other outputs, and checks the
+two equations above on the reference every pixel; both inputs must have
+been active where they matter. `coin` and `coin_full` run with `pro` = 0,
+the new `coin_pro` (`tb_coin_pro`, capacitors / 1000) with `pro` = 1.
+
+Results on 5 November 2026 (Icarus Verilog, run as `scripts/run_tests.py`
+does):
+
+| Run | `pro` | Frames | Pixels compared | Notes |
+|---|---|---|---|---|
+| `coin` | 0 | 41 | 4 926 632 | as in the table above; /BONUS CP low 414 163 pixels (70 368 with /COIN IN high), BONUS SOUND high 2 404 577 (2 317 358 with the AND low): no effect on A28, A29 |
+| `coin_full` | 0 | 100 | 12 029 288 | as above; /BONUS CP low 1 071 502 pixels, BONUS SOUND high 5 937 684: no effect |
+| `coin_pro` | 1 | 41 | 4 926 632 | the stages of `coin`; A28 low through /BONUS CP alone in 70 368 pixels, EX. CP high through BONUS SOUND alone in 2 317 358, RTL and reference equal |
+
+Open items (Pro):
+
+- The third input numeral of IC53 (reads 12, a 7411 would give 13) and the
+  A28 buffer's package caption ("74" or "34") are uncertain (trace A02,
+  A08); neither changes the logic.
+- What the sound board does while A28 is low after a game (un-muted output
+  stage, possibly MY CAR SOUND ON) comes from the original sound board's
+  trace; the Pro manual has no sound sheets.
+- The rest of Pro sheet A has not been compared with the original. In
+  particular, on Pro the S-100-D' signal at pad A30 comes from new sheet I
+  logic using P-2C and P-3D (untraced), and the board reset includes RAM
+  RESET. Neither reaches the two gates above; both are left to their own
+  traces and are not implemented here.

@@ -21,10 +21,20 @@
 // M1V_INIT and M2V_INIT put the counters' FF lines at 3F and CF after
 // reset, a few frames from the IC69 windows. The stimulus stands in for
 // sheets A, D and H; it is not gameplay.
+// PRO = 1: the Pro board (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md). Vs/512 rises
+// every fourth frame, /COIN IN is low in one frame of seven and at random
+// pixels, and EXTEND, D-TIME and SLOW change at random. Further directed
+// checks: /DISPLAY follows a model of IC72 written from the trace (cleared
+// while /COIN IN is low, low after the IC72A-th rise of Vs/512 with /COIN IN
+// high); D-EXTEND, /D-EXTEND and /D-GAME are EXTEND, /EXTEND, /GAME or D-TIME,
+// NOT D-TIME, low by /DISPLAY; the MH period and VSEL use {SLOW, 0, 0, 0}
+// for SP while /DISPLAY is low. With PRO = 0 the Pro inputs stay still and
+// the stimulus is the one it was.
 `timescale 1ns/1ps
 module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
                    STILL_FRAMES = 8, RANDOM_FRAMES = 0,
-                   parameter [7:0] M1V_INIT = 8'hd0, M2V_INIT = 8'h40);
+                   parameter [7:0] M1V_INIT = 8'hd0, M2V_INIT = 8'h40,
+                   parameter integer PRO = 0, IC72A = 1);
     reg clk=0, rst=1;
     always #10.416666667 clk=~clk;                   // 48 MHz
 
@@ -53,6 +63,9 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
     reg vs2=0, vs4=0, vs16=1;
     reg coin_in_n=1, coin_in_e1_n=1, ex_signal_n=0, game_n=1, in_reset_n=1;
     reg tunnel_bridge_n=1;
+    // Pro board: Vs/512 (H), EXTEND and /EXTEND (A), D-TIME and SLOW (D)
+    wire pro = PRO != 0;
+    reg vs512=0, extend=0, d_time=0, slow=0;
 
     // ---------------- RTL
     wire [8:0] d_mh;
@@ -60,10 +73,13 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
     wire [5:1] d_vdec;
     wire d_mhld_n, d_m1vld_n, d_m2vld_n, d_exgo_n, d_coinst_n;
     wire d_q1, d_q2, d_q68, d_vsel, d_strobe_n, d_txt;
-    jtmonacogp_motion #(.M1V_INIT(M1V_INIT),.M2V_INIT(M2V_INIT)) dut(.clk(clk),.rst(rst),.pxl_cen(pcen),.h(h),.hs(hs),.v(v),
+    wire d_display_n, d_dext, d_dext_n, d_dgame_n;
+    jtmonacogp_motion #(.M1V_INIT(M1V_INIT),.M2V_INIT(M2V_INIT),.IC72A(IC72A)) dut(.clk(clk),.rst(rst),.pxl_cen(pcen),.h(h),.hs(hs),.v(v),
         .sp(sp),.vs2(vs2),.vs4(vs4),.vs16(vs16),
         .coin_in_n(coin_in_n),.coin_in_e1_n(coin_in_e1_n),.ex_signal_n(ex_signal_n),
         .game_n(game_n),.in_reset_n(in_reset_n),.tunnel_bridge_n(tunnel_bridge_n),
+        .pro(pro),.vs512(vs512),.extend(extend),.extend_n(~extend),.d_time(d_time),.slow(slow),
+        .display_n(d_display_n),.d_extend(d_dext),.d_extend_n(d_dext_n),.d_game_n(d_dgame_n),
         .pr133_addr(a133),.pr133_q(q133),
         .mh(d_mh),.mhld_n(d_mhld_n),.m1v(d_m1v),.m2v(d_m2v),.m1vld_n(d_m1vld_n),
         .m2vld_n(d_m2vld_n),.vdec_n(d_vdec),.ex_gameover_n(d_exgo_n),.coin_start_n(d_coinst_n),
@@ -102,26 +118,34 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
                 r_inrst_n, r_tb_n} =
                {sp, vs2, vs4, vs16, coin_in_n, coin_in_e1_n, ex_signal_n, game_n,
                 in_reset_n, tunnel_bridge_n};
+    wire r_vs512, r_extend, r_d_time, r_slow;
+    assign #20 {r_vs512, r_extend, r_d_time, r_slow} = {vs512, extend, d_time, slow};
 
     wire [8:0] r_mh;
     wire [7:0] r_m1v, r_m2v;
     wire [5:1] r_vdec;
     wire r_mhld_n, r_m1vld_n, r_m2vld_n, r_exgo_n, r_coinst_n;
     wire r_q1, r_q2, r_q68, r_vsel, r_strobe_n, r_txt;
-    sheet_b_reference #(.M1V_INIT(M1V_INIT),.M2V_INIT(M2V_INIT)) reff(.b_7m(f7),.b_h(r_h),.b_h5_n(r_h5_n),.b_h8_n(r_h8_n),.b_hs_n(r_hs_n),
+    wire r_display_n, r_dext, r_dext_n, r_dgame_n;
+    sheet_b_reference #(.M1V_INIT(M1V_INIT),.M2V_INIT(M2V_INIT),.IC72A(IC72A)) reff(.b_7m(f7),.b_h(r_h),.b_h5_n(r_h5_n),.b_h8_n(r_h8_n),.b_hs_n(r_hs_n),
         .b_v(r_v),.b_v4_n(r_v4_n),.b_v8_n(r_v8_n),.b_vca_v8_n(r_vca_v8_n),
         .b_sp_a(r_sp[0]),.b_sp_b(r_sp[1]),.b_sp_c(r_sp[2]),.b_sp_d(r_sp[3]),
         .b_vs2(r_vs2),.b_vs4(r_vs4),.b_vs16(r_vs16),
         .b_coin_in_ed_n(r_coin_ed_n),.b_coin_in_e1_n(r_coin_e1_n),.b_ex_signal_n(r_ex_n),
         .b_game_n(r_game_n),.b_in_reset_n(r_inrst_n),.b_tunnel_bridge_n(r_tb_n),
+        .b_pro(pro),.b_vs512(r_vs512),.b_extend(r_extend),.b_extend_n(~r_extend),
+        .b_d_time(r_d_time),.b_slow(r_slow),
+        .display_n(r_display_n),.d_extend(r_dext),.d_extend_n(r_dext_n),.d_game_n(r_dgame_n),
         .mh(r_mh),.mhld_n(r_mhld_n),.m1v(r_m1v),.m2v(r_m2v),.m1vld_n(r_m1vld_n),
         .m2vld_n(r_m2vld_n),.vdec_n(r_vdec),.ex_gameover_n(r_exgo_n),.coin_start_n(r_coinst_n),
         .q1(r_q1),.q2(r_q2),.q68(r_q68),.vsel(r_vsel),.strobe_n(r_strobe_n),.txt(r_txt));
 
-    wire [40:0] d_vec = {d_mh, d_mhld_n, d_m1v, d_m2v, d_m1vld_n, d_m2vld_n, d_vdec,
-                         d_exgo_n, d_coinst_n, d_q1, d_q2, d_q68, d_vsel, d_strobe_n, d_txt};
-    wire [40:0] r_vec = {r_mh, r_mhld_n, r_m1v, r_m2v, r_m1vld_n, r_m2vld_n, r_vdec,
-                         r_exgo_n, r_coinst_n, r_q1, r_q2, r_q68, r_vsel, r_strobe_n, r_txt};
+    wire [44:0] d_vec = {d_mh, d_mhld_n, d_m1v, d_m2v, d_m1vld_n, d_m2vld_n, d_vdec,
+                         d_exgo_n, d_coinst_n, d_q1, d_q2, d_q68, d_vsel, d_strobe_n, d_txt,
+                         d_display_n, d_dext, d_dext_n, d_dgame_n};
+    wire [44:0] r_vec = {r_mh, r_mhld_n, r_m1v, r_m2v, r_m1vld_n, r_m2vld_n, r_vdec,
+                         r_exgo_n, r_coinst_n, r_q1, r_q2, r_q68, r_vsel, r_strobe_n, r_txt,
+                         r_display_n, r_dext, r_dext_n, r_dgame_n};
 
     // ---------------- Stimulus generator and checks
     localparam integer S_TEXT = 0, S_MOVE = 1, S_STILL = 2, S_RANDOM = 3, S_DONE = 4;
@@ -140,8 +164,13 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
     reg running = 0, frame_ev = 0, line_end = 0;
     reg [7:0] vsdiv = 0;
     integer k, n;
+    // Pro IC72, from the trace (reading IC72A): Q of each half
+    reg e72a = 0, e72b = 0, vs512_m = 0;
+    integer seed_p = 32'h50524f42, disp_falls = 0, disp_rises = 0, disp_px = 0, slow_loads = 0;
+    reg disp_prev = 1;
     // Expected values from the trace
-    wire vsel_exp = in_reset_n & ~(vs4 & vs2 & tunnel_bridge_n & ~(sp[3] & sp[2]));
+    reg [3:0] spx;                                         // IC29, set below
+    reg vsel_exp, ck_old, ck_new, a_new;
     wire [7:0] tbyte = image[4096 + {coin_in_n, h[8], h[3], v[6:1]}];
     wire q68_exp = !v[8] && v[7:0] >= 8'h40 && v[7:0] <= 8'hbf;
     wire msg_win  = !h[8] && h[7:4] == 4'hf && q68_exp && vs16 && (!ex_signal_n || !coin_in_e1_n);
@@ -185,6 +214,28 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
 
     always @(posedge clk) if (pcen && running) begin
         pixels = pixels + 1;
+        // ---------------- Pro IC72 model, for the pixel that ends here
+        if (pro) begin
+            if (!coin_in_n) begin
+                e72a = 0; e72b = 0;
+            end else if (vs512 && !vs512_m) begin
+                ck_old = IC72A == 1 ? ~e72a : e72a;
+                a_new  = IC72A == 0 ? e72a : ~e72a;
+                ck_new = IC72A == 1 ? ~a_new : a_new;
+                e72a = a_new;
+                if (!ck_old && ck_new) e72b = coin_in_n;
+            end
+            vs512_m = vs512;
+        end
+        spx = pro && e72b ? {slow, 3'b000} : sp;
+        vsel_exp = in_reset_n & ~(vs4 & vs2 & tunnel_bridge_n & ~(spx[3] & spx[2]));
+        if (d_display_n !== !e72b) $fatal(1, "/DISPLAY %b, expected %b (pixel %0d)", d_display_n, !e72b, pixels);
+        if ({d_dext, d_dext_n, d_dgame_n} !== (e72b ? {d_time, ~d_time, 1'b0} : {extend, ~extend, game_n}))
+            $fatal(1, "IC70 outputs %b, /DISPLAY %b (pixel %0d)", {d_dext, d_dext_n, d_dgame_n}, d_display_n, pixels);
+        if (!d_display_n) disp_px = disp_px + 1;
+        if (!d_display_n && disp_prev) disp_falls = disp_falls + 1;
+        if (d_display_n && !disp_prev) disp_rises = disp_rises + 1;
+        disp_prev = d_display_n;
         // ---------------- compare the pixel that ends here
         if (^d_vec === 1'bx || ^r_vec === 1'bx)
             $fatal(1, "unknown net at pixel %0d (h=%h v=%h):\n RTL %b\n REF %b", pixels, h, v, d_vec, r_vec);
@@ -215,7 +266,8 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
             mh_last = pixels;
             mh_loads = mh_loads + 1;
             if (v == 9'h1ff) begin
-                mh_expect = 480 - 2*sp;
+                mh_expect = 480 - 2*spx;
+                if (pro && e72b) slow_loads = slow_loads + 1;
                 mh_sp_loads = mh_sp_loads + 1;
                 sp_seen = sp_seen | (1 << sp);
                 if (sp_line_last == lines) mh_double = mh_double + 1;
@@ -318,6 +370,22 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
                 tunnel_bridge_n <= $random(seed) % 4 != 0;
                 in_reset_n <= $random(seed) % 10 != 0;
             end
+            if (pro) begin
+                // Pro: Vs/512 rises every fourth frame; /COIN IN low in one
+                // frame of seven (replacing the coin stimulus above)
+                vs512 <= frames[1];
+                if (stage != S_TEXT) coin_in_n <= frames % 7 != 3;
+                extend <= $random(seed_p) % 2;
+                d_time <= $random(seed_p) % 2;
+                slow <= $random(seed_p) % 2;
+            end
+        end
+        if (pro && stage != S_TEXT) begin
+            // Pro inputs at random pixels; SLOW often on line 1FF
+            if (($random(seed_p) & 32'h7fffffff) % (v == 9'h1ff ? 300 : 30000) == 0) slow <= ~slow;
+            if (($random(seed_p) & 32'h7fffffff) % 30000 == 0) d_time <= ~d_time;
+            if (($random(seed_p) & 32'h7fffffff) % 30000 == 0) extend <= ~extend;
+            if (($random(seed_p) & 32'h7fffffff) % 4000000 == 0) coin_in_n <= 0;
         end
         // SP changes at random pixels, often on line 1FF where MH loads it
         if (stage != S_TEXT && ($random(seed) & 32'h7fffffff) % (v == 9'h1ff ? 400 : 30000) == 0)
@@ -328,7 +396,8 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
             if (($random(seed) & 32'h7fffffff) % 60000 == 0) in_reset_n <= ~in_reset_n;
             if (($random(seed) & 32'h7fffffff) % 60000 == 0) vs2 <= ~vs2;
             if (($random(seed) & 32'h7fffffff) % 60000 == 0) vs4 <= ~vs4;
-            if (($random(seed) & 32'h7fffffff) % 30000 == 0) coin_in_n <= ~coin_in_n;
+            // (Pro: /COIN IN from the Pro stimulus instead, so that IC72 runs)
+            if (($random(seed) & 32'h7fffffff) % 30000 == 0) coin_in_n <= pro ? coin_in_n : ~coin_in_n;
             if (($random(seed) & 32'h7fffffff) % 30000 == 0) game_n <= ~game_n;
         end
     end
@@ -387,6 +456,13 @@ module tb_motion #(parameter integer TEXT_FRAMES = 3, MOVE_FRAMES = 170,
         if (MOVE_FRAMES > 0 && (ff_min[0] != 8'h2f || ff_max[0] != 8'h50)) $fatal(1, "M1V swing not 2F..50");
         if (MOVE_FRAMES > 0 && (ff_min[1] != 8'hbf || ff_max[1] != 8'hf0)) $fatal(1, "M2V swing not BF..F0");
         if (ex_lit == 0 || coin_lit == 0) $fatal(1, "a text output never lit");
+        if (pro) begin
+            $display("  Pro (IC72 reading %0d): /DISPLAY fell %0d times, rose %0d times, low for %0d pixels; %0d MH loads at line 1FF took {SLOW, 0, 0, 0}",
+                     IC72A, disp_falls, disp_rises, disp_px, slow_loads);
+            if (IC72A != 0 && (disp_falls < 2 || disp_rises < 2 || slow_loads < 2))
+                $fatal(1, "coverage: the display timer did not run");
+            if (IC72A == 0 && disp_falls != 0) $fatal(1, "IC72a as drawn: /DISPLAY fell");
+        end
         $finish;
     end
 endmodule

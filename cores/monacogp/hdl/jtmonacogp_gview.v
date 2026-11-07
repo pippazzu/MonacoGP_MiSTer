@@ -130,7 +130,7 @@ module jtmonacogp_gview(
                 if (!tire_n)          {red, green, blue} = P_TIRE;
                 if (!player_bl_n)     {red, green, blue} = P_BL;
                 // Sheet B's text: red GAME OVER / EXTENDED PLAY and blue
-                // DEPOSIT COIN / START, the colours of the real game
+                // DEPOSIT COIN / START, the colours of the real game (Aldo)
                 if (!ex_gameover_n)   {red, green, blue} = MSG_TOP;
                 if (!coin_start_n)    {red, green, blue} = MSG_BOTTOM;
                 if (real_colour)      {red, green, blue} = {c_red, c_green, c_blue};

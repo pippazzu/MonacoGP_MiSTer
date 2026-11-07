@@ -201,7 +201,11 @@ endmodule
 module sheet_b_reference #(
     // Power-up contents of M1V and M2V
     parameter [7:0] M1V_INIT = 8'd0,
-    parameter [7:0] M2V_INIT = 8'd0
+    parameter [7:0] M2V_INIT = 8'd0,
+    // Pro IC72a's reading (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md, U1): 0 as
+    // drawn (D and 72b CK on pin 5, Q), 1 the numeral read as 6 (both on
+    // pin 6, /Q), 2 D on pin 6 and 72b CK on pin 5
+    parameter integer IC72A = 1
 )(
     // Sheet E
     input        b_7m,              // 7M: IC118, IC103 pin 2
@@ -218,6 +222,13 @@ module sheet_b_reference #(
     input        b_coin_in_ed_n, b_coin_in_e1_n, b_ex_signal_n, b_game_n, b_in_reset_n,
     // Sheet D
     input        b_tunnel_bridge_n,
+    // Pro board (manual 420-0525 page 13, pro/docs/trace/SHEETS_B_E_COMPARE.md
+    // B5-B7): Vs/512 (H, pad E8), EXTEND and /EXTEND (A, pads EB, E3),
+    // D-TIME and SLOW (D). /COIN IN is pad E1 on Pro, the PROM's A8 net
+    // (b_coin_in_ed_n here). With b_pro low IC72 is held clear and IC29
+    // passes the SP pads, as the original sheet has neither.
+    input        b_pro, b_vs512, b_extend, b_extend_n, b_d_time, b_slow,
+    output       display_n, d_extend, d_extend_n, d_game_n,
     // Outputs
     output [8:0] mh,
     output       mhld_n,
@@ -279,13 +290,41 @@ module sheet_b_reference #(
     rb_279_latch ic68(.s_in(d[2]),.r_in(d[6]),.q(ic68_13));     // pins 15, 14 -> 13
     assign q68 = ic68_13;
 
+    // ------------------------------------------------------------ Pro: IC72, IC70, IC29, IC57
+    // IC72 (7474): both /CLR (1, 13) and 72b's D (12) on /COIN IN (pad E1).
+    wire clr72 = b_pro ? b_coin_in_ed_n : gnd;
+    wire q72a, q72a_n, q72b, q72b_n;
+    rb_7474_half ic72a(.clr_in(clr72),.d(IC72A == 0 ? q72a : q72a_n),.ck_in(b_vs512),.pr_in(nc),
+        .q(q72a),.q_n(q72a_n));                                  // pins 1-6
+    rb_7474_half ic72b(.clr_in(clr72),.d(b_coin_in_ed_n),.ck_in(IC72A == 1 ? q72a_n : q72a),.pr_in(nc),
+        .q(q72b),.q_n(q72b_n));                                  // pins 13-8
+    assign display_n = q72b_n;                                   // pin 8
+    wire ic57_8, ic57_2, ic57_4, ic57_6, ic57_10, ic57_12;
+    rb_7404 ic57p(.p9(b_d_time),.p8(ic57_8),
+        .p1(nc),.p2(ic57_2),.p3(nc),.p4(ic57_4),.p5(nc),.p6(ic57_6),.p11(nc),.p10(ic57_10),.p13(nc),.p12(ic57_12));
+    wire ic70p_12;
+    rb_74157 ic70p(.p1(q72b_n),.p15(gnd),
+        .p2(b_d_time),.p3(b_extend),.p4(d_extend),
+        .p5(ic57_8),.p6(b_extend_n),.p7(d_extend_n),
+        .p11(q72b_n),.p10(b_game_n),.p9(d_game_n),
+        .p14(nc),.p13(nc),.p12(ic70p_12));
+    wire ic29_4, ic29_7, ic29_9, ic29_12;
+    rb_74157 ic29(.p1(q72b_n),.p15(gnd),
+        .p2(gnd),.p3(b_sp_a),.p4(ic29_4),
+        .p5(gnd),.p6(b_sp_b),.p7(ic29_7),
+        .p11(gnd),.p10(b_sp_c),.p9(ic29_9),
+        .p14(b_slow),.p13(b_sp_d),.p12(ic29_12));
+    // The original has no IC29: the pads go straight to IC111 and IC110.
+    wire sp_a = b_pro ? ic29_4 : b_sp_a, sp_b = b_pro ? ic29_7 : b_sp_b;
+    wire sp_c = b_pro ? ic29_9 : b_sp_c, sp_d = b_pro ? ic29_12 : b_sp_d;
+
     // ------------------------------------------------------------ MH
     wire ic111_4, ic111_7, ic111_9, ic111_12;
     rb_74157 ic111(.p1(b_vca_v8_n),.p15(gnd),
-        .p2(b_sp_a),.p3(gnd),.p4(ic111_4),
-        .p5(b_sp_b),.p6(gnd),.p7(ic111_7),
-        .p11(b_sp_c),.p10(vcc),.p9(ic111_9),
-        .p14(b_sp_d),.p13(vcc),.p12(ic111_12));
+        .p2(sp_a),.p3(gnd),.p4(ic111_4),
+        .p5(sp_b),.p6(gnd),.p7(ic111_7),
+        .p11(sp_c),.p10(vcc),.p9(ic111_9),
+        .p14(sp_d),.p13(vcc),.p12(ic111_12));
     rb_74161 ic118(.p1(vcc),.p2(b_7m),.p3(gnd),.p4(ic111_4),.p5(ic111_7),.p6(ic111_9),
         .p7(vcc),.p9(ic55_8),.p10(vcc),
         .p14(mh[0]),.p13(mh[1]),.p12(mh[2]),.p11(mh[3]),.p15(tc118));
@@ -299,7 +338,7 @@ module sheet_b_reference #(
 
     // ------------------------------------------------------------ VSEL
     wire ic110_11, ic110_3, ic110_6, ic110_8;
-    rb_7400 ic110(.p13(b_sp_c),.p12(b_sp_d),.p11(ic110_11),
+    rb_7400 ic110(.p13(sp_c),.p12(sp_d),.p11(ic110_11),
         .p1(nc),.p2(nc),.p3(ic110_3),.p4(nc),.p5(nc),.p6(ic110_6),.p9(nc),.p10(nc),.p8(ic110_8));
     wire ic95_8, ic95_3, ic95_6, ic95_11;
     rb_7408 ic95(.p9(b_tunnel_bridge_n),.p10(ic110_11),.p8(ic95_8),

@@ -216,9 +216,13 @@ module sheet_a_reference #(
     input        a_aj,              // TILT SW node
     // Other sheets
     input        a_acce_st, a_game_over, a_v2, a_vs16, a_a30,
+    // Pro board: a_pro = 1 selects the Pro sheet A gates (manual 420-0525,
+    // pro/docs/trace/SHEET_A_BONUS_TRACE.md) for pads A29 and A28
+    input        a_pro, a_bonus_sound, a_bonus_cp_n,
     // Outputs, as the RTL's
     output       game, game_n, coin_in, coin_in_n, coin_test_n, extend, extend_n,
     output       ex_signal_n, ex_signal_cp_n, ex_cp, car_cont_cl, pts8000, mute, hiscore_n,
+    output       snd_coin_in_n,     // pad A28
     output       ini_reset_n,
     output [3:0] t1, t2,
     output       coin_meter, credit_lamp,
@@ -306,9 +310,35 @@ module sheet_a_reference #(
     wire n49_13, n49_4;
     ra_74123 #(.PIXELS(IC49_PIXELS)) ic49(.a(excp_n),.b(vcc),.f7(f7),.q(n49_13),.q_n(n49_4));
     assign ex_signal_n = n49_4;
-    wire n85_6, n85_8;
-    ra_7411 ic85(.p13(a_v2),.p1(a_vs16),.p2(n49_13),.p12(ex_cp),
+    wire n85_12, n85_6, n85_8;
+    ra_7411 ic85(.p13(a_v2),.p1(a_vs16),.p2(n49_13),.p12(n85_12),
         .p3(nc),.p4(nc),.p5(nc),.p6(n85_6),.p9(nc),.p10(nc),.p11(nc),.p8(n85_8));
+
+    // ------------------------------------------------------------ Pro board
+    // Sheet A of manual 420-0525 (PDF page 8), rows A01-A08 of
+    // pro/docs/trace/SHEET_A_BONUS_TRACE.md. IC numbers are the Pro board's.
+    // Pad A29: the three-input AND (IC53 on Pro, IC85 above: the same
+    // function and inputs; the numeral of its third input is uncertain, A02)
+    // goes to IC59 (7432) input 2, BONUS SOUND (N) to input 1; output 3
+    // through buffer 46 (1 -> 2, no bubble; package type not read) to A29.
+    wire p59_3, p59_6, p59_8, p59_11, p46_2, p46_4, p46_6, p46_8, p46_10, p46_12;
+    ra_7432 pro_ic59(.p2(n85_12),.p1(a_bonus_sound),.p3(p59_3),
+        .p4(nc),.p5(nc),.p6(p59_6),.p9(nc),.p10(nc),.p8(p59_8),.p12(nc),.p13(nc),.p11(p59_11));
+    ra_7407 pro_ic46(.p1(p59_3),.p2(p46_2),
+        .p3(nc),.p4(p46_4),.p5(nc),.p6(p46_6),.p9(nc),.p8(p46_8),.p11(nc),.p10(p46_10),.p13(nc),.p12(p46_12));
+    // Pad A28: IC35 (OR body, bubbled inputs: NAND) input 9 = /COIN IN
+    // (IC37 /Q), input 10 = /BONUS CP (N); output 8 through an inverting
+    // buffer (input 13, output bubble at 12; package caption "74" or "34",
+    // uncertain, A08) to A28.
+    wire p35_3, p35_6, p35_8, p35_11, pb_2, pb_4, pb_6, pb_8, pb_10, pb_12;
+    ra_7400 pro_ic35(.p9(n37_6),.p10(a_bonus_cp_n),.p8(p35_8),
+        .p1(nc),.p2(nc),.p3(p35_3),.p4(nc),.p5(nc),.p6(p35_6),.p12(nc),.p13(nc),.p11(p35_11));
+    ra_7404 pro_a28buf(.p13(p35_8),.p12(pb_12),
+        .p1(nc),.p2(pb_2),.p3(nc),.p4(pb_4),.p5(nc),.p6(pb_6),.p9(nc),.p8(pb_8),.p11(nc),.p10(pb_10));
+    // Original board: IC85 pin 12 to A29 through buffer "29" and IC37 /Q to
+    // A28 through IC31 (7407, 11 -> 10); those buffers are not modelled.
+    assign ex_cp = a_pro ? p46_2 : n85_12;
+    assign snd_coin_in_n = a_pro ? pb_12 : n37_6;
     wire n38_5;
     ra_74123 #(.PIXELS(HI_PIXELS)) ic38b(.a(mclr),.b(n50_9),.f7(f7),.q(n38_5),.q_n(hiscore_n));
 

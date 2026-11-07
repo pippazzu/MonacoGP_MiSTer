@@ -21,6 +21,26 @@
 // The capacitors on IC43's select (C9), on the /LOAD net, on IC37's carry,
 // on IC42.8 (C6), IC44.6 (C7) and /DUMMY AREA (C5) are not reproduced.
 // pxl_cen must be at least six host clocks apart.
+//
+// Pro Monaco GP (manual 420-0525, sheet M, PDF page 17), selected by pro = 1:
+// the +200 graphic, pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md. With pro = 0
+// the new input is ignored, /+200 stays high and the module is the original
+// sheet M.
+//   - PR-54 (IC130, 6331, 32 x 8, /E1 at GND): A0..A4 = V0..V4 in straight
+//     order. A1 = V1 and A2 = V2 is the trace's probable reading (R1/R2); a
+//     swap would exchange address bits 1 and 2.
+//   - IC129 (74151): D0..D7 = PR-54 O1..O8; A, B, C = H1, H2, H3 (H0
+//     unused); /G = IC124.8; output W (pin 6) = /+200 (R) -> (C).
+//   - IC124 (7410, 11, 10, 9 -> 8) = NAND(IC79.12 = NOT V-(4), BONUS CP,
+//     IC128.8 = NOR(H4, H5, H6, H7)).
+//   So /+200 is low where the selected PR-54 bit is 1, in the window
+//   H 0x100-0x10F x V 0x080-0x09F while BONUS CP is high: one PROM word per
+//   line, each bit for two H clocks. The 6331 outputs are open collector with
+//   no pull-up drawn; a released output reads high at the 74151, as stored.
+//   It is registered with the other outputs (one pixel late).
+// PR-54 has no known dump. The table below (pr54) is Aldo's RECONSTRUCTION of
+// the +200 artwork (pro/reconstruction/plus200-glyph.txt, 6 November 2026,
+// O1 = bit 0), not original PROM data.
 module jtmonacogp_rescue #(
     // IC18: 74123 data sheet, tw = 0.28*R*C*(1+0.7/R), R in kohm, in periods
     // of 7.1525 MHz. R16 47k (first digit blotted, U5 of the trace), C4 1.5 uF.
@@ -29,7 +49,7 @@ module jtmonacogp_rescue #(
     input            clk, rst,
     input            pxl_cen,
     // Sheet E: 7M is the pixel clock itself; V-CA = V0..V7 all high
-    input      [8:0] h,                 // H0..H8 (H7 unused)
+    input      [8:0] h,                 // H0..H8 (H7 on the Pro board only)
     input      [8:0] v,                 // V0..V8 (V5 unused)
     input            hs,                // HS, active high; the sheet uses /HS
     // Sheet B
@@ -53,6 +73,9 @@ module jtmonacogp_rescue #(
     // Sheet F
     input            acce_d,            // ACCE. D, pad E14
     input            explo_sel_d,       // EXPLO. SEL. D, pad EM
+    // Pro board (sheet N); ignored while pro = 0
+    input            pro,               // 1: Pro Monaco GP board
+    input            bonus_cp,          // BONUS CP (N) -> IC124 pin 10
     // PR-138 = IC30, PR-139 = IC51, PR-140 = IC12, PR-141 = IC17 (512 x 8)
     output     [8:0] pr138_addr, pr139_addr, pr140_addr,
     input      [7:0] pr138_q, pr139_q, pr140_q, pr141_q,
@@ -67,6 +90,7 @@ module jtmonacogp_rescue #(
     output reg       bridge_w_n,        // -> (C), pad EH -> (F)
     output reg       bridge_dbu_n, bridge_y_n, bridge_r_n, bridge_bu_n, // -> (C)
     output reg       l2_side_n, r2_side_n,                             // pads F4, F5 -> (H)
+    output reg       plus200_n,         // Pro: IC129 pin 6 (W), /+200 (R) -> (C); high with pro = 0
     // Tests only
     output reg [21:0] dbg,              // internal state, previous pixel
     output           busy               // a further step would change the state
@@ -80,6 +104,7 @@ module jtmonacogp_rescue #(
     reg        i_excp_n, i_100c, i_cnc_n, i_ext500, i_ext500_n, i_zero_n, i_bap, i_other_n, i_acce_d, i_explo;
     reg  [5:1] i_vd;
     reg  [4:0] i_mh;
+    reg        i_pro, i_bonus_cp;
 
     // State
     reg  [3:0] c36, c37, c49, c46;
@@ -183,6 +208,26 @@ module jtmonacogp_rescue #(
     // and /V7 (F5).
     wire n15_8 = i_ext500 & y11[0];
 
+    // ---------------------------------------------------------------- +200 (Pro)
+    // PR-54, Aldo's reconstruction (see the header): address A4..A0 =
+    // V4..V0, data bit k = output O(k+1).
+    function [7:0] pr54(input [4:0] a);
+        case (a)
+            5'd0,  5'd1,  5'd4,  5'd5,  5'd8,  5'd9,  5'd12, 5'd13: pr54 = 8'h7e;
+            5'd2,  5'd3,  5'd10, 5'd11:                             pr54 = 8'h42;
+            5'd16, 5'd17:                                           pr54 = 8'h4e;
+            5'd18, 5'd19:                                           pr54 = 8'h52;
+            5'd20, 5'd21:                                           pr54 = 8'h66;
+            5'd24, 5'd25, 5'd28, 5'd29:                             pr54 = 8'h10;
+            5'd26, 5'd27:                                           pr54 = 8'h7c;
+            default:                                                pr54 = 8'h00;
+        endcase
+    endfunction
+    wire [7:0] pr54_q = pr54(i_v[4:0]);
+    wire n128_8 = ~|i_h[7:4];                                   // IC128 (13, 9, 10, 12 -> 8)
+    wire n124_8 = ~(~i_vd[4] & i_bonus_cp & n128_8);            // IC79 (13 -> 12), IC124
+    wire w129 = n124_8 | ~pr54_q[i_h[3:1]];                     // IC129 W; /G high forces it high
+
     // ---------------------------------------------------------------- step
     wire [10:0] ck = {i_coin_n, tc37, n44_6, n42_8, i_vs64, i_extend_n, n47_8, c49[2], q35l, up46, dn46};
     // 74123 (B and /CLR at Vcc): A falling.
@@ -206,6 +251,7 @@ module jtmonacogp_rescue #(
             {i_vs4, i_vs16, i_vs32, i_vs64} <= 0;
             {i_extend, i_extend_n, i_game_n, i_coin_n, i_excp_n} <= 5'b01111;
             {i_100c, i_cnc_n, i_ext500, i_ext500_n, i_zero_n, i_bap, i_other_n, i_acce_d, i_explo} <= 9'b010111100;
+            {i_pro, i_bonus_cp} <= 0;
             // The board has no reset; this is one power-up state.
             c36 <= 0; c37 <= 0; c49 <= 0; c46 <= 0;
             q57 <= 0; q35u <= 0; q35l <= 0; m18 <= 0;
@@ -215,6 +261,7 @@ module jtmonacogp_rescue #(
             {sig_y_n, sig_bl_n, dummy_area_n, dummy_w_n, dummy_r_n, dummy_bl_n} <= 6'h3f;
             game_over <= 0;
             {bridge_w_n, bridge_dbu_n, bridge_y_n, bridge_r_n, bridge_bu_n, l2_side_n, r2_side_n} <= 7'h7f;
+            plus200_n <= 1;
             dbg <= 0;
         end else begin
             cen_sr <= {cen_sr[1:0], pxl_cen};
@@ -241,6 +288,7 @@ module jtmonacogp_rescue #(
                 bridge_w_n   <= code6 != 4'd5;
                 l2_side_n <= ~(n15_8 & v7);
                 r2_side_n <= ~(n15_8 & ~v7);
+                plus200_n <= ~i_pro | w129;
                 dbg <= state;
                 // The 7 MHz edge: IC36 and IC37
                 if (!n44_8) begin
@@ -259,6 +307,7 @@ module jtmonacogp_rescue #(
                     {extend, extend_n, game_n, coin_in_n, ex_signal_cp_n};
                 {i_100c, i_cnc_n, i_ext500, i_ext500_n, i_zero_n, i_bap, i_other_n, i_acce_d, i_explo} <=
                     {s100c, car_no_cont_n, ext500, ext500_n, zero_area_n, bridge_ap, other_car_n, acce_d, explo_sel_d};
+                {i_pro, i_bonus_cp} <= {pro, bonus_cp};
             end else begin
                 // One settling step
                 ck_l <= ck;

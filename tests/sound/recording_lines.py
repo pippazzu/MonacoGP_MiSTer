@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Spectral lines of a recording or of a model step file, for comparing the
-core's sounds with the maintainer's board recordings (not part of the test suite).
+core's sounds with Aldo's board recordings (not part of the test suite).
 
   recording_lines.py timeline FILE [T0 T1]    level and the six strongest
                                               lines every 50 ms (100 ms window)

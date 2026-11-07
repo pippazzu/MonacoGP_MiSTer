@@ -33,6 +33,13 @@
 // 74123 pulses are counted in pixels and decremented at each edge 3.
 // pxl_cen must be at least six host clocks apart. RC shaping (C3, C16, C17,
 // the shift-lever filters) is not reproduced.
+//
+// Pro Monaco GP (manual 420-0525, sheet F, PDF page 9), selected by pro = 1:
+// pro/docs/trace/SHEET_F_BONUS_TRACE.md. The normal score NAND's output is
+// ANDed with /BONUS POINT from sheet N (the Pro board's IC8: lower input 9,
+// upper input read 11 or 10, output 8) before the output buffer to pad A14:
+// /SCORE CP = /BONUS POINT AND NOT(/SCORE ST AND Y). With pro = 0,
+// /BONUS POINT is ignored. The score divider's clear is /GAME on both boards.
 module jtmonacogp_control #(
     // 74123 data sheet: tw = 0.28*R*C*(1+0.7/R), R in kohm, in periods of
     // 7.1525 MHz. Values as read from the scan.
@@ -82,6 +89,9 @@ module jtmonacogp_control #(
     input            shift_nc,           // shift lever NC line, pad AC
     // IC27 pin 3 (/S2 of the first latch) is not drawn
     input            ic27_3,
+    // Pro board (sheet N); ignored while pro = 0
+    input            pro,                // 1: Pro Monaco GP board
+    input            bonus_point_n,      // /BONUS POINT (N)
     // Valid for the current pixel
     output           pl_h_st,            // IC17 pin 6 -> (G)
     output           pl_v_st,            // IC41 pin 6 -> (G)
@@ -142,6 +152,7 @@ module jtmonacogp_control #(
     reg i_rescue_n, i_bridge_n, i_ext_car_cont;
     reg i_sp_down_n, i_sp_down, i_score_st_n, i_acc1_st_n, i_acc1_pulse_n, i_player;
     reg i_acce_a, i_acce_b, i_han_l, i_han_r, i_shift_no, i_shift_nc, i_27_3;
+    reg i_pro, i_bonus_point_n;
     wire v5 = i_v[5], v6 = i_v[6], v7 = i_v[7];
 
     // State
@@ -285,7 +296,8 @@ module jtmonacogp_control #(
     wire z4 = x_n & q5[~q15[3:2]];
 
     // Outputs
-    wire score_cp_c = ~(i_score_st_n & z4);     // IC8 (9, 10 -> 8), IC13 (11 -> 10)
+    // IC8 (9, 10 -> 8), IC13 (11 -> 10); Pro: the AND with /BONUS POINT between them
+    wire score_cp_c = ~(i_score_st_n & z4) & (~i_pro | i_bonus_point_n);
     wire ic62_3 = i_8000 | i_ext500_n;          // IC62 (1, 2 -> 3)
     wire sp_irreg_c = ~(~q15[3] & ic62_3 & i_ext_car_cont);  // IC80 (1, 2, 13 -> 12)
     wire acce_st_c = ic23_6 & zb60;             // IC34 (4, 5 -> 6)
@@ -320,6 +332,7 @@ module jtmonacogp_control #(
             {i_rescue_n, i_bridge_n, i_ext_car_cont} <= 3'b110;
             {i_sp_down_n, i_sp_down, i_score_st_n, i_acc1_st_n, i_acc1_pulse_n, i_player} <= 6'b101110;
             {i_acce_a, i_acce_b, i_han_l, i_han_r, i_shift_no, i_shift_nc, i_27_3} <= 7'b0000111;
+            {i_pro, i_bonus_point_n} <= 2'b01;
             {c15, c24, c25, c35, c36, c5, c39} <= 0;
             {explo_r, l27a_r, l27b_r, l27d_r, l32_r, x_r} <= 0;
             {m1a, m1b, m43a, m43b, m49} <= 0;
@@ -379,6 +392,7 @@ module jtmonacogp_control #(
                     {sp_down_n, sp_down, score_st_n, acc1_st_n, acc1_pulse_n, player};
                 {i_acce_a, i_acce_b, i_han_l, i_han_r, i_shift_no, i_shift_nc, i_27_3} <=
                     {acce_cont_a, acce_cont_b, han_l_cp, han_r_cp, shift_no, shift_nc, ic27_3};
+                {i_pro, i_bonus_point_n} <= {pro, bonus_point_n};
                 // One pixel of every running pulse
                 if (m1a  != 0) m1a  <= m1a  - 22'd1;
                 if (m1b  != 0) m1b  <= m1b  - 22'd1;

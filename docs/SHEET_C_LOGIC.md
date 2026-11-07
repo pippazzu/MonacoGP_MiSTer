@@ -70,16 +70,52 @@ to win and the dim level, a mid-pixel colour change and IC79 holding an
 AREA to occur. `tests/tb_play.v` checks that sheet B's top text is red on
 the screen and reports the colours of the bottom text and the road.
 
+Results: see [reports/sheet-c-2026-10-30/README.md](../reports/sheet-c-2026-10-30/README.md).
 
 ## Open items
 
 - 31 October: IC5's A inputs were first read as /ROAD; the arrow has no
   overbar (ROAD). With /ROAD, extended play drew the blue road over the
-  other cars' and the rescue car's black outlines (seen on a MiSTer; a
+  other cars' and the rescue car's black outlines (seen on Aldo's MiSTer; a
   real board keeps them black).
 
 - IC8's type (the drawing shows AND gates; the redraw lists 74LS12) and the
   label of the cyan plane (trace U1, U2).
 - The dim level depends on the monitor's input load.
-- DEPOSIT COIN (/COIN & START) lands in the cyan plane; the maintainer describes it as
+- DEPOSIT COIN (/COIN & START) lands in the cyan plane; Aldo describes it as
   blue on the real game. To compare on a screen or a capture.
+
+## Pro board: /+200
+
+Pro Monaco GP (manual 420-0525, sheet C, PDF page 14) adds one input to the
+red collector, read in `pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md`: /+200 (R)
+from sheet M goes to the 8-input NAND IC74 (7430), beside EX & GAME OVER.
+That gate is IC33 here. The module takes it behind a `pro` input (1 = Pro
+board); with `pro` = 0, `plus200_n` is ignored and every output is as above.
+
+The collector's inverter (IC2 13 → 12 on Pro, IC3 11 → 10 here) drives the
+74147's input 9, the highest priority, and the brightness logic. A +200
+pixel is therefore pure red at full brightness over whatever is underneath,
+as the trace reads for Pro. The rest of Pro sheet C is not modelled: its
+brightness path (the upward 7430, IC47, IC53) and a fourth 7417 pull-down on
+blue only were traced only along the +200 path, where, with the red line
+low, they give the same result as this sheet.
+
+Ports: `pro`, `plus200_n` in (both in `jtmonacogp_colour` and
+`jtmonacogp_colour_mix`). In `jtmonacogp_game.v` `plus200_n` comes from
+sheet M (`m_plus200_n`) and `pro` is tied to 0.
+
+`tests/sheet_c_reference.v` puts /+200 on IC33's unwired pin 3 when `pro` is
+1 (the 7430 inputs are equivalent). `tests/tb_colour.v` drives /+200 in
+every run from a random sequence of its own (the rest of the stimulus is
+unchanged) and checks both halves of every pixel: with `pro` = 1 and /+200
+low, code 9, red alone, full brightness; otherwise the colour of a third
+copy of the RTL with `pro` = 0. `colour` runs with `pro` = 0, the new
+`colour_pro` (`tb_colour_pro`) with `pro` = 1. `tests/tb_plus200.v` checks
+the same colour on the real raster, over nothing, white and yellow.
+
+Results on 6 November 2026 (Icarus Verilog): `colour` (`pro` = 0) gives the
+same codes and counts as before, with /+200 low in 99 778 halves (63 924 where
+it would change the colour) and ignored; `colour_pro` (`pro` = 1) passes
+against the reference, with /+200 forcing pure full red in those 63 924
+halves.

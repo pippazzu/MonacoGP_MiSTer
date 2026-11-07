@@ -24,10 +24,18 @@
 // pulses to run out, one crash and the return to the start position.
 // FRAMES frames of random play follow.
 // The stimulus stands in for sheets A, D, G, H and M; it is not gameplay.
+// Pro board (pro/docs/trace/SHEET_F_BONUS_TRACE.md): /BONUS POINT from
+// sheet N is driven in every run, as short low pulses from its own random
+// sequence, which leaves the rest of the stimulus as it was. PRO selects the
+// board in both models. Checked from the trace for every pixel, on the
+// reference: /SCORE CP = normal NAND output AND (/BONUS POINT OR NOT PRO).
+// With PRO = 1 some bonus pulses must make a falling /SCORE CP edge of
+// their own (normal NAND output high).
 `timescale 1ns/1ps
 module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
                    // Directed stages run: 0 accelerate, 1 slip, 2 pool, 3 crash
-                   parameter integer FIRST_STAGE = 0, parameter integer LAST_STAGE = 2);
+                   parameter integer FIRST_STAGE = 0, parameter integer LAST_STAGE = 2,
+                   parameter integer PRO = 0);
     reg clk=0, rst=1;
     always #10.416666667 clk=~clk;                   // 48 MHz
 
@@ -54,6 +62,8 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
     reg rescue_n=1, bridge_n=1, ext_car_cont=0;
     reg sp_down_n=1, sp_down=0, score_st_n=1, acc1_st_n=1, acc1_pulse_n=1, player=0;
     reg acce_a=1, acce_b=1, han_l=0, han_r=0, shift_no=0, shift_nc=1, ic27_3=1;
+    reg bonus_point_n=1;                             // sheet N (Pro)
+    wire pro = PRO != 0;
     reg [7:0] vsdiv=0;
     wire vs2=vsdiv[0], vs8=vsdiv[2], vs16=vsdiv[3], vs32=vsdiv[4], vs64=vsdiv[5];
 
@@ -77,6 +87,7 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
         .acc1_pulse_n(acc1_pulse_n),.player(player),
         .acce_cont_a(acce_a),.acce_cont_b(acce_b),.han_l_cp(han_l),.han_r_cp(han_r),
         .shift_no(shift_no),.shift_nc(shift_nc),.ic27_3(ic27_3),
+        .pro(pro),.bonus_point_n(bonus_point_n),
         .pl_h_st(d_plh),.pl_v_st(d_plv),.shift(d_shift),.slipzone_n(d_slipzone_n),
         .nonroad_slip_n(d_nonroad_n),.acce_st(d_acce_st),.acce(d_acce),.score_cp_n(d_score_cp_n),
         .s_acc1_n(d_s_acc1_n),.acc1_n(d_acc1_n),.splay_a_n(d_splay_a_n),.splay_b_n(d_splay_b_n),
@@ -98,7 +109,8 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
     wire r_other_body_n, r_slip_n, r_pool2_n, r_road, r_tunnel_n, r_ext500_n;
     wire r_rescue_n, r_bridge_n, r_ext_car_cont, r_sp_down_n, r_sp_down, r_score_st_n;
     wire r_acc1_st_n, r_acc1_pulse_n, r_player, r_acce_a, r_acce_b, r_han_l, r_han_r;
-    wire r_shift_no, r_shift_nc, r_ic27_3;
+    wire r_shift_no, r_shift_nc, r_ic27_3, r_bonus_point_n, r_score_nand;
+    assign #5 r_bonus_point_n = bonus_point_n;
     assign #5 {r_h4, r_h5, r_h6, r_h8, r_hs_n, r_v4, r_v5_n, r_v6, r_v6_n, r_v7, r_v7_n} =
               {h[4], h[5], h[6], h[8], ~hs, v[4], ~v[5], v[6], ~v[6], v[7], ~v[7]};
     assign #5 {r_coin_test_n, r_game_n, r_extend, r_8000, r_vs2, r_vs8, r_vs16, r_vs32, r_vs64} =
@@ -132,6 +144,7 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
         .f_acc1_st_n(r_acc1_st_n),.f_acc1_pulse_n(r_acc1_pulse_n),.f_player(r_player),
         .f_acce_a(r_acce_a),.f_acce_b(r_acce_b),.f_han_l(r_han_l),.f_han_r(r_han_r),
         .f_shift_no(r_shift_no),.f_shift_nc(r_shift_nc),.f_ic27_3(r_ic27_3),
+        .f_pro(pro),.f_bonus_point_n(r_bonus_point_n),.score_nand(r_score_nand),
         .pl_h_st(r_plh),.pl_v_st(r_plv),.shift(r_shift),.slipzone_n(r_slipzone_n),
         .nonroad_slip_n(r_nonroad_n),.acce_st(r_acce_st),.acce(r_acce),.s_acce(r_s_acce),
         .score_cp_n(r_score_cp_n),.s_acc1_n(r_s_acc1_n),.acc1_n(r_acc1_n),
@@ -160,6 +173,7 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
     // this frame only, so that each IC1 half's last pulse runs out (3.7
     // frames) before the other half clears it, while IC43 still holds A low.
     localparam integer HAN_L_FRAME = FAST ? 3 : 7;
+    integer seed_b = 32'h50524f21, bonus_left = 0;
     integer han_left=0, han_gap=0, lever=0, coin_left=0, game_left=0, pulse_left=0, calm_left=0;
     integer px0=200, py0=120, sx0=0, sy0=0, rx0=0, ry0=0;
     reg running=0, han_side=0, en_player=1, en_slip=0, en_pool=0, en_road=0, en_rescue=0;
@@ -331,6 +345,11 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
         bridge_n <= !(en_bridge && inbox(x, y, rx0, ry0 + 8, 8, 8));
         other_body_n <= !(en_body && inbox(x, y, rx0 + 4, ry0 + 4, 12, 12)) &&
                         (calm || $random(seed) % 20000 != 0);
+        // /BONUS POINT (sheet N stand-in): short low pulses, own sequence
+        if (bonus_left > 0) begin bonus_left = bonus_left - 1; if (bonus_left == 0) bonus_point_n <= 1; end
+        else if (($random(seed_b) & 32'h7fffffff) % 5000 == 0) begin
+            bonus_left = 1 + ($random(seed_b) & 63); bonus_point_n <= 0;
+        end
         // /ACC1. PULSE: short low pulses
         if (pulse_left > 0) begin pulse_left = pulse_left - 1; if (pulse_left == 0) acc1_pulse_n <= 1; end
         else if (!calm && $random(seed) % 30000 == 0) begin pulse_left = 1 + ($random(seed) & 7); acc1_pulse_n <= 0; end
@@ -353,6 +372,8 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
     integer plh_seen=0, plv_seen=0, explo_rises=0, explo_falls=0, home_falls=0, crash_sets=0;
     integer m1a_rises=0, m1b_rises=0, m43a_rises=0, m43b_rises=0, l27d_sets=0, l27a_sets=0;
     integer qd15_px=0, acce_max=0, c5_steps=0, sel12=0, irreg_low=0;
+    integer bonus_low=0, bonus_open=0, bonus_edges=0, score_falls=0;
+    reg r_score_q=1;
     reg [83:0] r_lag_q;
     reg [7:0] r_ic19_q;
     reg comparing=0, directed=0, have_prev=0;
@@ -403,6 +424,17 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
                            pixel-1,h,v,d_lag,r_lag_q,d_lag^r_lag_q);
             end
             compared = compared + 1;
+            // Score output (Pro gate), on the reference, from the trace
+            if (r_score_cp_n !== (r_score_nand & (r_bonus_point_n | !pro)))
+                $fatal(1,"/SCORE CP %b at pixel %0d: normal NAND %b /BONUS POINT %b (PRO %0d)",
+                       r_score_cp_n,pixel,r_score_nand,r_bonus_point_n,PRO);
+            if (!r_bonus_point_n) bonus_low = bonus_low + 1;
+            if (!r_bonus_point_n && r_score_nand) bonus_open = bonus_open + 1;
+            if (r_score_q && !r_score_cp_n) begin
+                score_falls = score_falls + 1;
+                if (!r_bonus_point_n && r_score_nand) bonus_edges = bonus_edges + 1;
+            end
+            r_score_q = r_score_cp_n;
         end
         if (directed) begin
             if (d_plh !== exp_plh) $fatal(1,"PL-H-ST at h=%h v=%h: %b, expected %b",h,v,d_plh,exp_plh);
@@ -519,6 +551,11 @@ module tb_control #(parameter FAST = 0, parameter integer FRAMES = 30,
         if (LAST_STAGE >= 3 && (crash_sets == 0 || explo_rises == 0 || explo_falls == 0 || home_falls == 0))
             $fatal(1,"crash stage: crash, explosion or return to the start position missing");
         if (c5_steps == 0) $fatal(1,"IC5 score clock never stepped");
+        $display("  /BONUS POINT (PRO=%0d): low %0d px, %0d with the normal NAND high; /SCORE CP falls %0d, %0d of them bonus pulses",
+                 PRO,bonus_low,bonus_open,score_falls,bonus_edges);
+        if (bonus_open == 0) $fatal(1,"/BONUS POINT never low while the normal score NAND was high");
+        if (pro && bonus_edges == 0) $fatal(1,"no bonus pulse reached /SCORE CP");
+        if (!pro && bonus_edges != 0) $fatal(1,"/BONUS POINT reached /SCORE CP with PRO = 0");
         $finish;
     end
 endmodule

@@ -44,7 +44,7 @@ SCALE={"i408":39e3}
 # 2 November): the largest per-window differences times 2.5. The vibrato
 # runs about 0.08 % slow against SPICE's, so its phase drifts by about
 # 2.3 ms over the run and the triangle's window mean differs by up to
-# 0.22 V at the end (of 3.0..8.25 V); the notes' frequencies differ by up
+# 0.22 V at the end (of 3.86..7.59 V); the notes' frequencies differ by up
 # to 0.8 Hz (upper) and 1.6 Hz (lower) in windows where the note holds, the
 # RMS of the sawtooths, the mixer and the filters by up to 0.035 V (of
 # about 1 V), the MC3340's output and the R408 current by up to 0.0083 V.

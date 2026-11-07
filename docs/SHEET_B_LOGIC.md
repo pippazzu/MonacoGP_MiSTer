@@ -145,7 +145,7 @@ same stimulus on the real sheet E raster:
 - The stimulus is not gameplay: sheets A, D and H are replaced by random
   nets.
 
-Results on 28 October 2026 (logs in the working notes (not published)):
+Results on 28 October 2026 (logs in `reports/sheet-b-2026-10-28/`):
 
 | Run | Frames | Pixels compared | Notes |
 |---|---|---|---|

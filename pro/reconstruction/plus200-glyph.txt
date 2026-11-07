@@ -1,0 +1,40 @@
+# Pro Monaco GP +200 graphic, PR-54 reconstruction
+#
+# Aldo's reconstruction, drawn 6 November 2026 on the "+200 Glyph Grid" page
+# under the real GAME OVER from PR-133. NOT a dump: no PR-54 dump is known.
+# It replaces the earlier 6-row drawing (plus200-user-bitmap.txt), which PR-54
+# could not store because each PROM bit lasts two pixel clocks.
+#
+# Mapping, from pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md:
+# - the window is 32 raster lines x 16 H clocks: V 0x080-0x09F, H 0x100-0x10F;
+# - one PROM address per raster line, a = V - 0x080; on the upright screen
+#   address 31 is the window's left column and address 0 its right column;
+# - bit k (output O(k+1)) lights window rows 2k and 2k+1; O1 is the top pair.
+#
+# Still open: the order of address lines A1/A2 (probable reading), whether a
+# programmer reads O1 as bit 0 or bit 7, and a possible one-clock offset
+# against GAME OVER.
+#
+# Upright view, 32 columns x 16 rows, # = lit:
+................................
+................................
+..........######..######..######
+..........######..######..######
+....##....##..##..##..##..##..##
+....##....##..##..##..##..##..##
+....##........##..##..##..##..##
+....##........##..##..##..##..##
+..######....##....##..##..##..##
+..######....##....##..##..##..##
+....##....##......##..##..##..##
+....##....##......##..##..##..##
+....##....######..######..######
+....##....######..######..######
+................................
+................................
+#
+# PR-54 bytes, address 0..31, O1 = bit 0:
+# 7e 7e 42 42 7e 7e 00 00
+# 7e 7e 42 42 7e 7e 00 00
+# 4e 4e 52 52 66 66 00 00
+# 10 10 7c 7c 10 10 00 00

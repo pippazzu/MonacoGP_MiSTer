@@ -115,10 +115,17 @@ module jtmonacogp_sound(
         .v_conl(),.v_mciu(),.v_mcil(),.v_mcou(),.v_mcol());
 
     // D-6/D-7: the other cars; S-ACCE as held for the step, pad C over the
-    // clocks before it
+    // clocks before it. R109 (car 1's CONTROL bias) as drawn unless the
+    // build defines MONACOGP_R109 (1 = 3.3K, 2 = 33K): an option for Aldo,
+    // not a reading (docs/sound/OTHER_CAR_COMPARE.md).
+`ifdef MONACOGP_R109
+    localparam R109_OPT = `MONACOGP_R109;
+`else
+    localparam R109_OPT = 0;
+`endif
     wire signed [35:0] i_mf, i_mb;
     wire               o_done;
-    jtmonacogp_snd_d67 u_d67(
+    jtmonacogp_snd_d67 #(.R109(R109_OPT)) u_d67(
         .clk(clk),.rst(rst),.tick(tick),.acc(acc_l),.fs_n(f_sound_n),
         .i_mf(i_mf),.i_mb(i_mb),.done(o_done),.v_front(),.v_r6(),
         .v_feed(),.v_r14(),.v_r28(),.v_u1(),.v_u2(),.v_con20(),.v_con19(),.v_con34(),

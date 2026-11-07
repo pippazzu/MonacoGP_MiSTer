@@ -4,28 +4,28 @@ Source: Sega **Monaco GP (420-0358)**, PDF page **26**, drawing **F**, board
 **96577-P**, sheet **D-2/4**, "IC BOARD ASS'Y, A" (Japanese caption:
 プレイヤー（アクセル・ハンドル・シフトレバー）コントロール, player
 (accelerator, handle, shift lever) control). Image:
-manual 420-0358, PDF page 26, **10176 × 6624** pixels, SHA-256
+`schematics/pages/page26-sheet-F.png`, **10176 × 6624** pixels, SHA-256
 `c632f2ce8c5fbb369b307036510d8b2662598b4a0b6f27cba8149c0420c2a056`.
 
 **Status: complete pin-level trace, every row checked on the scan
 (25–26 October 2026).** This file replaces the pass-by-pass working log,
-which is kept unchanged in the working notes (not published).
+which is kept unchanged in [`work/SHEET_F_LOG.md`](work/SHEET_F_LOG.md).
 That log holds the evidence and the human reviews behind the F1–F45 items
 cited below.
 
 ## How this trace was made
 
-1. Codex and the maintainer transcribed the sheet in 15 passes (23–25 October). They
-   settled about 45 doubtful crossings, designators and glyphs with the maintainer's
+1. Codex and Aldo transcribed the sheet in 15 passes (23–25 October). They
+   settled about 45 doubtful crossings, designators and glyphs with Aldo's
    own readings (F1–F45 in the log).
-2. On 25 October the maintainer asked for every reading to be compared with
+2. On 25 October Aldo asked for every reading to be compared with
    stonedDiscord's KiCad redraw of board 96577, treating the redraw as
    reliable unless the scan clearly contradicts it.
 3. Claude then took every pin the redraw places on this sheet and followed
    it on the scan, wire by wire, to both ends:
    - 539 rows were checked: 472 confirmed, 24 that differ from the redraw,
      27 not drawn on this sheet, and 16 drawn as open stubs.
-   - Doubtful crossings were measured with a dot-size measuring script.
+   - Doubtful crossings were measured with `tools/schematic/dotsize.py`.
      Junction dots measure 16–23 px; plain crossings measure 8–16 px.
    - Every place where the scan and the redraw differ is listed under
      "Differences from the redraw". The scan reading is used in the tables.
@@ -367,7 +367,7 @@ Sections 1,2→3, 4,5→6 and 9,10→8 are AND bodies with output bubbles; 12,13
 | 14 | B2 | GND | scan |
 | 15 | A3 | IC18.1, IC25.7 | scan |
 
-### IC12 — 7400 NAND, designator confirmed by the maintainer (F8)
+### IC12 — 7400 NAND, designator confirmed by Aldo (F8)
 
 Only sections 1,2→3 and 4,5→6 are on this sheet.
 
@@ -551,7 +551,7 @@ Sections drawn in both OR and De Morgan (AND body, all bubbles) forms; all four 
 | 4 | DOWN | IC25.13 | scan |
 | 5 | UP | IC25.12 | scan |
 | 6 | QC | IC10.13, IC17.14, IC28.5 | scan |
-| 7 | QD | Vcc | scan. QD output drawn to Vcc (F44, confirmed by the maintainer) |
+| 7 | QD | Vcc | scan. QD output drawn to Vcc (F44, confirmed by Aldo) |
 | 9 | D | Vcc | scan |
 | 10 | C | Vcc | scan |
 | 11 | /LOAD | /COIN & TEST, arrow from (A); IC25.11, IC28.11, IC35.11, IC36.11 — redraw continues to A IC73.4 | scan |
@@ -985,7 +985,7 @@ Section 12,13→11 is an AND body with output bubble.
 | 14 | S0 | pad BM, EXPLO. SEL. D (M); also arrow (G); IC39.6, IC68.5 — redraw continues to G IC74.4 | scan |
 | 15 | Eb | GND | scan |
 
-### IC72 — 7402 NOR, designator confirmed by the maintainer (F11)
+### IC72 — 7402 NOR, designator confirmed by Aldo (F11)
 
 Section 11,12→13 drawn OR body with output bubble; 5,6→4 drawn AND body with input bubbles (F19).
 
@@ -1046,7 +1046,7 @@ Section 3,4,5→6 (pins printed) and a second section driving /SP. IRREG.; only 
 | C21 and a 47K | 22µ, 47K to Vcc | IC49 pins 6, 7 | The resistor's number is not readable (the redraw calls it R12). |
 | C3 | 470p to GND | IC19 MR (pins 2, 12) and IC74 output | |
 | C17 | 470p to GND | IC40 MR (pins 2, 12) and IC47 output 8 | |
-| C16 | **330p** to GND | IC34.8 and IC39.1 (CP) | The redraw has 470p. The maintainer read the last glyph as "p" (F42). |
+| C16 | **330p** to GND | IC34.8 and IC39.1 (CP) | The redraw has 470p. Aldo read the last glyph as "p" (F42). |
 | RA1 | 560Ω ×2 (inferred, see U4), pull-ups to Vcc | the shift lever's NO and NC lines | |
 | RA2 | 100Ω ×2 | in series from the shift lever lines to IC32.14 and IC32.15 | |
 | C10, C7 | 0.1µF ×2 to GND | IC32.14 (/R), IC32.15 (/S) | |
@@ -1159,7 +1159,7 @@ The tables follow the scan in every case below.
    with a pointed end.
 2. **U2 — IC24.7 drawn to Vcc: closed 26 October 2026, no effect on
    behaviour.** QD is an output, and the drawing ties it to Vcc (F44,
-   confirmed by the maintainer as drawn). The wiring shows the designers treat this
+   confirmed by Aldo as drawn). The wiring shows the designers treat this
    bit as a constant 1:
    - IC24 loads 1111 on /COIN & TEST, so QD starts at 1.
    - Every comparator that would read QD uses Vcc instead: IC10.15 (A3) and
@@ -1180,11 +1180,11 @@ The tables follow the scan in every case below.
    13 (/BO), and pin 12 (/CO) is already printed above it. Both are open
    stubs, so the slip has no effect.
 4. **U4 — Shift-lever labels: closed 26 October 2026 by inference.** The
-   scan glyphs cannot be read alone; the maintainer read them as "AR5? A2.5? A5?" and
+   scan glyphs cannot be read alone; Aldo read them as "AR5? A2.5? A5?" and
    "S60 N2?". Both are inferred from context:
    - **RA1 = 560Ω.** RA1 is a resistor pack on this board. Sheet A draws
      the same RA1 as a 560Ω pull-up, with RA2 100Ω in series, in the same
-     input filter used here. The maintainer's "S60" reads as 560, and the drawing
+     input filter used here. Aldo's "S60" reads as 560, and the drawing
      shows two pull-ups, so the label is most likely "560Ω×2". The later
      97091-P redraw also has RA1 = 560Ω pulling up both shift-lever lines.
    - **NO pad = A25.** Sheet A uses pads A23, A24 and A26–A32 but not A25,
@@ -1228,7 +1228,7 @@ The tables follow the scan in every case below.
 
 - **F40, F41.** Both B points on the IC72.11 vertical measure 11.7–12.8 px,
   which is a plain crossing. Closed as not joined.
-- **F42, F43, F44, F45.** Closed by the maintainer; carried into the tables (C16 330p,
+- **F42, F43, F44, F45.** Closed by Aldo; carried into the tables (C16 330p,
   IC33.4 Vcc, IC24.7 as drawn, IC19 numbering).
 - **Old U1–U18.** Resolved by the pin tables:
   - U1: /SP DOWN (left edge) → IC2.2, IC2.12; SP. DOWN (top edge) → IC72.12.
@@ -1251,10 +1251,10 @@ The tables follow the scan in every case below.
 
 ## History
 
-- 23–25 October 2026: Codex, with the maintainer's crossing decisions F1–F45,
+- 23–25 October 2026: Codex, with Aldo's crossing decisions F1–F45,
   transcribed the sheet in 15 passes. The full log is
-  the working notes (not published).
-- 25 October 2026: The maintainer set the policy to treat the KiCad redraw as reliable
+  [`work/SHEET_F_LOG.md`](work/SHEET_F_LOG.md).
+- 25 October 2026: Aldo set the policy to treat the KiCad redraw as reliable
   unless the scan clearly contradicts it (commit b8e8725).
 - 25–26 October 2026: Claude checked every pin on the scan and wrote this
   consolidated trace.

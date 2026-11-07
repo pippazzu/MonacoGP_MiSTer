@@ -61,6 +61,7 @@ nets at every pixel after the first frame, and requires the headlight to
 switch on and off by the comparators and off by /S1, yellow and red explosion
 pixels, splash pixels from both /SPLAY A pages and both window states.
 
+Results: see [reports/sheet-g-effects-2026-10-31/README.md](../reports/sheet-g-effects-2026-10-31/README.md).
 
 ## Open items
 
