@@ -33,7 +33,7 @@
 // every pass over the memory but the first starts 128 addresses after the
 // score just written, which is then never counted: a new best score would
 // get R = 0 and no row would flash. The real panel flashes 1ST for a new
-// best score (the maintainer's photo, 1 November 2026), as it does when DOWN is the
+// best score (Aldo's photo, 1 November 2026), as it does when DOWN is the
 // inverse of 12D's QD: every pass then starts at the new score. DOWN_INV = 1
 // (the default) takes that reading; DOWN_INV = 0 is the drawing.
 //
@@ -59,9 +59,49 @@
 //   ended. With KEEP one search runs when 12C's power-up delay ends, for the
 //   five ranks only: N does not count, and R and FLASH read zero until a game.
 // KEEP = 0 is the board as drawn; the pin-wired reference tests use it.
+//
+// Pro Monaco GP (manual 420-0525, sheet I, PDF page 18), selected by
+// pro = 1: pro/docs/trace/SHEET_I_TRACE.md. Only the parts that trace
+// covers change; the search, comparison, rank, R, N and FLASH logic is kept
+// as on the original board (the Pro trace compares it at block level only).
+// - The memory is four 5101s with separate inputs and outputs, no 8216s.
+//   The comparators read the RAM outputs, which float high (OD = NOT R/W)
+//   only while R/W is low. The D bus to sheet K is taken from the 74192
+//   rows (the comparators' B inputs), not from the RAM outputs (probable,
+//   trace U7); at a memory match the two are equal.
+// - The sequencer 92b (74393 half, binary) replaces 11A's first half:
+//   CP = 93.8 = H5 AND 91.8, 91.8 = NAND(QD, /RAM RESET); MR = 73.6 =
+//   /RAM RESET AND 72.6, 72.6 = /GAME END OR 56.Q. So it runs once
+//   /GAME END falls (after the bonus payout, sheet N), not when GAME falls,
+//   and not at all after a game that passed 9999; while RAM RESET is held
+//   it runs freely. The 7442 (82) has D = 91.6 = NAND(92a QD, 92b QA): it
+//   decodes nothing until 92a (12C's second half on the original) has
+//   counted its eight V2 periods after /INI. RESET. /INI. RESET no longer
+//   frees the sequencer, so power-up writes nothing; RAM RESET writes the
+//   score (0000, held by RST) into slot after slot instead.
+// - RST = 91.3 = NAND(/COIN & TEST, 73.11), 73.11 = /INI. RESET AND
+//   /RAM RESET. /LATCH CL (to K) is 73.11 itself: latch_cl is its inverse.
+// - 56 (7474 half): D = Vcc, CK = NOT P-4D, /CL = /RST. It sets when the
+//   thousands decade carries out (the score passed 9999) and drives the
+//   YOUR SCORE 10000POINT LAMP (tenk) until RST. The 680 pF on its clock is
+//   not reproduced.
+// - 65 (74123 half): /A = /GAME END, B = 56.Q, /CLR = Vcc; Q = T.R.S (to
+//   K), a pulse of TRS_W enables of cen14, retriggerable. Its capacitor is
+//   unreadable (".01" or "1u", with R57 47 k); TRS_W is the .01 uF reading,
+//   0.28 * 47 k * 10 nF * (1 + 0.7/47) = 134 us. Only its rising edge
+//   matters (sheet K).
+// - Not traced on Pro and kept as on the original: the clocks of 9F (93)
+//   and of N, N's clear and the 13F gate on 256 CL. As modelled, N counts
+//   once per free-run cycle while RAM RESET is held, until the next
+//   /INI. RESET clears it.
+// - KEEP: with pro, writes need no arming (the board writes nothing at
+//   power-up by itself).
+// With pro = 0, /GAME END and /RAM RESET are ignored, and tenk and trs stay
+// low.
 module jtmonacogp_rank #(
     parameter integer DOWN_INV = 1,
-    parameter integer KEEP = 0
+    parameter integer KEEP = 0,
+    parameter integer TRS_W = 1912
 )(
     input             clk, rst,
     input             cen14,
@@ -71,6 +111,12 @@ module jtmonacogp_rank #(
     input             coin_test_n,    // (A) pad b
     input             ini_reset_n,    // (A) pad 24
     input      [15:0] p,              // the score {P-4 .. P-1}, jtmonacogp_score.v
+    // Pro board; ignored while pro = 0
+    input             pro,            // 1: Pro Monaco GP board
+    input             game_end_n,     // /GAME END (N), pad HP
+    input             ram_reset_n,    // /RAM RESET (SW.1)
+    output            tenk,           // 56 Q: YOUR SCORE 10000POINT LAMP (pad G25)
+    output            trs,            // T.R.S (to K), 65 Q
     output     [15:0] d,              // D bus {D-4 .. D-1} (to K)
     output      [4:0] rank_ck,        // 1ST..5TH (to K), 10A Q0..Q4
     output            latch_cl,       // LATCH CL. (to K)
@@ -112,6 +158,10 @@ module jtmonacogp_rank #(
     reg        qc_seq;                // 11A first half QC (8216 /DIEN = its inverse)
     reg        armed;                 // KEEP: GAME has risen since /INI. RESET
     reg        boot_done, boot_view;  // KEEP: the search after power-up
+    // Pro
+    reg        q56, p4d_l;            // 56 Q; P-4D at the previous enable
+    reg        ge_l;                  // /GAME END at the previous enable
+    reg [19:0] trs_cnt;               // 65: enables left in the pulse
 
     function [3:0] inc10(input [3:0] x); inc10 = x == 4'd9 ? 4'd0 : x + 4'd1; endfunction
     function [11:0] inc3(input [11:0] x);       // three cascaded decades
@@ -138,16 +188,20 @@ module jtmonacogp_rank #(
     endfunction
 
     // ---------------------------------------------------------------- outputs
-    wire rst_t = ~(coin_test_n & ini_reset_n);          // 13H
+    wire l73   = ini_reset_n & (ram_reset_n | ~pro);    // Pro: 73.11 = /LATCH CL
+    wire rst_t = ~(coin_test_n & l73);                  // 13H; Pro: 91.3
     wire pwr   = ~pc[3];                                // 11D 5 -> 6
     wire q2    = c12[2:0] == 3'd5;                      // J2 Q2
     wire rp    = ~rc[3] & match_l;                      // 11B 4, 5 -> 6
-    assign d        = qc_seq ? 16'hffff : ram_dout;
+    // Pro: the 74192 rows (trace U7)
+    assign d        = pro ? cnt : qc_seq ? 16'hffff : ram_dout;
     assign ram_addr = adr;
     assign ram_din  = p;
     assign ptr_din  = adr;
     assign rank_ck  = {5{rp}} & (5'd1 << rc[2:0]);
-    assign latch_cl = pwr;
+    assign latch_cl = pro ? ~l73 : pwr;
+    assign tenk     = q56;
+    assign trs      = trs_cnt != 20'd0;
     assign n        = nk;
     assign r        = boot_view ? 12'd0 : rk;
     assign flash    = boot_view ? 5'd0 : h14[5:1];
@@ -161,6 +215,7 @@ module jtmonacogp_rank #(
     reg        s_q12b, s_f, s_e13, s_pwr, s_ck, s_ld, s_wr, s_f13, s_bo_n, s_t3, s_down;
     reg        s_match, s_own, s_rp, s_rr, s_dh, s_qc;
     reg        s_armed, s_allow, s_inc, s_boot, s_nck;
+    reg        s_q56, s_en82;
     reg        s_pc_ck_l, s_seq_ck_l, s_adr_ck_l, s_t11c3_l, s_down_l, s_n_ck_l;
     reg  [3:0] s_dec;
 
@@ -185,6 +240,7 @@ module jtmonacogp_rank #(
             c12 <= 0; d12 <= 0; f_q <= 0; own_l <= 0; match_l <= 0; rp_l <= 0; rr_l <= 0;
             rc <= 0; rk <= 0; nk <= 0; n_ck_l <= 0; e13 <= 0; h14 <= 0; qc_seq <= 0;
             ram_we <= 0; ptr_we <= 0; armed <= 0; boot_done <= 0; boot_view <= 0;
+            q56 <= 0; p4d_l <= 0; ge_l <= 0; trs_cnt <= 0;
         end else if (cen14) begin
             {s_pc, s_seq, s_c12, s_rc, s_adr, s_d12, s_h14} = {pc, seq, c12, rc, adr, d12, h14};
             {s_cnt, s_rk, s_nk, s_q12b, s_f, s_e13} = {cnt, rk, nk, q12b, f_q, e13};
@@ -198,19 +254,33 @@ module jtmonacogp_rank #(
             else if (s_pc_ck_l && !s_ck) s_pc = s_pc + 4'd1;
             s_pc_ck_l = ~(s_pc[3] | v2);
             s_pwr = ~s_pc[3];
-            // 11A first half: CP = 13F 1 = NOR(11B 11, H5), 11B 11 = QD & /INI. RESET;
-            // MR = 2H 8 = /INI. RESET & GAME
-            s_ck = ~((s_seq[3] & ini_reset_n) | h5);
-            if (ini_reset_n && game) s_seq = 0;
-            else if (s_seq_ck_l && !s_ck) s_seq = inc10(s_seq);
-            s_seq_ck_l = ~((s_seq[3] & ini_reset_n) | h5);
-            // 12A (A = QB, B = QC, C = QD, D = NOT QA through 13A 9 -> 8)
+            // Pro: 56, CK = NOT P-4D (falling P-4D sets it), /CL = /RST
+            if (!pro || rst_t) s_q56 = 1'b0;
+            else s_q56 = q56 | (p4d_l & ~p[15]);
+            if (!pro) begin
+                // 11A first half: CP = 13F 1 = NOR(11B 11, H5), 11B 11 = QD & /INI. RESET;
+                // MR = 2H 8 = /INI. RESET & GAME
+                s_ck = ~((s_seq[3] & ini_reset_n) | h5);
+                if (ini_reset_n && game) s_seq = 0;
+                else if (s_seq_ck_l && !s_ck) s_seq = inc10(s_seq);
+                s_seq_ck_l = ~((s_seq[3] & ini_reset_n) | h5);
+            end else begin
+                // Pro: 92b, CP = 93.8 = AND(91.8, H5), 91.8 = NAND(QD, /RAM RESET);
+                // MR = 73.6 = AND(/RAM RESET, 72.6), 72.6 = OR(/GAME END, 56.Q)
+                s_ck = h5 & ~(s_seq[3] & ram_reset_n);
+                if (ram_reset_n && (game_end_n || s_q56)) s_seq = 0;
+                else if (s_seq_ck_l && !s_ck) s_seq = s_seq + 4'd1;
+                s_seq_ck_l = h5 & ~(s_seq[3] & ram_reset_n);
+            end
+            // 12A (A = QB, B = QC, C = QD, D = NOT QA through 13A 9 -> 8);
+            // Pro: 82, D = 91.6 = NAND(92a QD, 92b QA)
+            s_en82  = !pro || !s_pwr;
             s_armed = (armed | game) & ini_reset_n;
-            s_allow = KEEP == 0 || s_armed;
+            s_allow = (KEEP == 0 || s_armed || pro) && s_en82;
             s_inc = s_seq == 4'd1 && s_allow;          // ADR INC.
             s_boot = KEEP != 0 && !s_pwr && !boot_done;
             s_qc  = s_seq[2];
-            s_ld  = s_seq == 4'd3;                     // 192 LD.
+            s_ld  = s_seq == 4'd3 && s_en82;           // 192 LD.
             s_wr  = s_seq == 4'd5 && s_allow;          // RAM R/W low
             s_nck = s_seq == 4'd7 && !s_pwr;           // 13F 5, 6 -> 4
             s_f13 = s_nck | s_boot;
@@ -239,7 +309,7 @@ module jtmonacogp_rank #(
             end
 
             // ------------------------------------------------ comparisons
-            s_dh    = s_qc;                            // 8216 outputs off
+            s_dh    = pro ? s_wr : s_qc;               // 8216 outputs off; Pro: 5101 OD high
             s_d     = s_dh ? 16'hffff : ram_dout;
             s_match = s_c12[2:0] == 3'd5 && s_d == s_cnt;      // 6F..3F, J2 Q2
             s_own   = s_c12[2:0] == 3'd7 && p == s_cnt;        // 6H..3H, J2 Q3
@@ -279,6 +349,11 @@ module jtmonacogp_rank #(
             {own_l, match_l, rp_l, rr_l} <= {s_own, s_match, s_rp, s_rr};
             qc_seq <= s_qc;
             ram_we <= s_wr;
+            // Pro: 65 fires on /GAME END falling with 56 set, or on 56 rising
+            // with /GAME END low
+            q56 <= s_q56; p4d_l <= p[15]; ge_l <= game_end_n;
+            if (pro && !game_end_n && ((ge_l && s_q56) || (!q56 && s_q56))) trs_cnt <= TRS_W;
+            else if (trs_cnt != 20'd0) trs_cnt <= trs_cnt - 20'd1;
         end
     end
 endmodule

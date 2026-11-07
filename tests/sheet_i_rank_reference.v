@@ -13,6 +13,15 @@
 //
 // DOWN_INV = 1 puts an inverter between 12D pin 6 and 7H pin 4 (the
 // correction described in jtmonacogp_rank.v); 0 is the drawing.
+//
+// PRO = 1: the Pro board's sheet I (manual 420-0525, PDF page 18), wired
+// from pro/docs/trace/SHEET_I_TRACE.md: 73, 91, 83 (resets, LATCH CL.),
+// 92a/92b (74393, the power-up delay and the sequencer), 72, 93, 82 (7442),
+// 64, the 5101s R97/R96/R95/R74, 56 (7474) and 65 (74123), with the 5101
+// select pins as rechecked by PR #76 (17 = CE2 on PWR-OK, 19 = /CE1
+// grounded). The parts that trace does not follow at pin level (the search
+// clock, 9F's clock, N, R, the rank counter, 14H, 13E) keep the original's
+// wiring and IC names. TRS_NS is 65's pulse width in ns.
 `timescale 1ns/1ps
 `define RTTL(x) ((x) === 1'bz ? 1'b1 : (x))
 
@@ -105,50 +114,137 @@ endmodule
 module rref_279(input s_n, r_n, output reg q = 0);
     always @* if (!`RTTL(s_n)) q <= #0.5 1; else if (!`RTTL(r_n)) q <= #0.5 0;
 endmodule
+// 5101 256 x 4 static RAM, separate DI and DO (Pro): written while R/W is
+// low and the chip is selected (/CE1 low, CE2 high); DO is driven while
+// selected with OD low, and floats otherwise
+module rref_5101(input [7:0] a, input [3:0] di, input rw, od, ce1_n, ce2, output [3:0] dout);
+    reg [3:0] mem [0:255];
+    integer k;
+    initial for (k = 0; k < 256; k = k + 1) mem[k] = 4'd0;
+    wire sel = !`RTTL(ce1_n) && `RTTL(ce2);
+    always @* if (sel && rw === 1'b0) mem[a] = di;
+    assign #0.5 dout = (sel && !`RTTL(od)) ? mem[a] : 4'bzzzz;
+endmodule
+// 7474 half: positive edge D flip-flop, /CL and /PR active low. Only a
+// clean 0 -> 1 edge clocks it: not the first settling from unknown.
+module rref_74(input d, ck, cl_n, pr_n, output reg q = 0);
+    wire c = `RTTL(ck), cl = `RTTL(cl_n), pr = `RTTL(pr_n);
+    reg c_l = 1'bx;
+    always @(c or cl or pr) begin
+        if (cl === 1'b0) q <= #0.5 0;
+        else if (pr === 1'b0) q <= #0.5 1;
+        else if (c_l === 1'b0 && c === 1'b1) q <= #1 `RTTL(d);
+        c_l = c;
+    end
+endmodule
+// 74123 half, retriggerable: Q goes high for W ns from the last trigger,
+// /A falling with B high or B rising with /A low (/CLR high). Only clean
+// edges (1 -> 0, 0 -> 1) trigger: not the first settling from unknown.
+module rref_123 #(parameter real W = 1000.0)(input a_n, b, clr_n, output reg q = 0);
+    wire an = `RTTL(a_n), bb = `RTTL(b), cl = `RTTL(clr_n);
+    real t_end = 0;
+    reg an_l = 1'bx, bb_l = 1'bx;
+    event fire;
+    always @(an) begin
+        if (an_l === 1'b1 && an === 1'b0 && bb === 1'b1 && cl === 1'b1) begin
+            t_end = $realtime + W; q <= #0.5 1; -> fire;
+        end
+        an_l = an;
+    end
+    always @(bb) begin
+        if (bb_l === 1'b0 && bb === 1'b1 && an === 1'b0 && cl === 1'b1) begin
+            t_end = $realtime + W; q <= #0.5 1; -> fire;
+        end
+        bb_l = bb;
+    end
+    always @(fire) begin
+        #1;
+        while ($realtime + 0.0005 < t_end) #(t_end - $realtime);
+        q = 0;
+    end
+endmodule
 module rref_nor2(input a, b, output y); assign #0.5 y = ~(`RTTL(a) | `RTTL(b)); endmodule
 module rref_and2(input a, b, output y); assign #0.5 y = `RTTL(a) & `RTTL(b);    endmodule
 module rref_or2 (input a, b, output y); assign #0.5 y = `RTTL(a) | `RTTL(b);    endmodule
 module rref_nand2(input a, b, output y); assign #0.5 y = ~(`RTTL(a) & `RTTL(b)); endmodule
 module rref_inv (input a, output y);    assign #0.5 y = ~`RTTL(a);              endmodule
 
-module sheet_i_rank_reference #(parameter integer DOWN_INV = 1)(
+module sheet_i_rank_reference #(
+    parameter integer DOWN_INV = 1,
+    parameter integer PRO = 0,
+    parameter real    TRS_NS = 133560.0
+)(
     input         osc14,                       // (E) 14 MHz, pad a
     input         h5, v2, vs16, game, coin_test_n, ini_reset_n,
+    input         game_end_n, ram_reset_n,     // Pro: pad HP, SW.1 (unused with PRO = 0)
     input  [15:0] p,                           // {P-4 .. P-1}
     output [15:0] d,                           // {D-4 .. D-1}
     output  [4:0] rank_ck,                     // 1ST..5TH
-    output        latch_cl,
+    output        latch_cl,                    // Pro: NOT /LATCH CL (73.11)
     output [11:0] n, r,
     output  [5:1] flash,
-    output        searching
+    output        searching,
+    output        tenk, trs                    // Pro: 56 Q, T.R.S (65 Q)
 );
     wire vcc = 1'b1, gnd = 1'b0, open = 1'bz;
     // ------------------------------------------------ reset and power-up
     wire rst_t, rst_n, ini;
-    rref_nand2 h13b(.a(coin_test_n), .b(ini_reset_n), .y(rst_t));    // 13H (OR body, bubbles)
+    wire l73;                                                        // Pro: 73.11 = /LATCH CL
+    generate if (PRO) begin : g_pro_rst
+        rref_and2  p73a(.a(ini_reset_n), .b(ram_reset_n), .y(l73));   // 73 13, 12 -> 11
+        rref_nand2 p91a(.a(coin_test_n), .b(l73), .y(rst_t));         // 91 1, 2 -> 3 (RST)
+        rref_inv   p83(.a(ini_reset_n), .y(ini));                     // 83 13 -> 12
+    end else begin : g_orig_rst
+        assign l73 = vcc;
+        rref_nand2 h13b(.a(coin_test_n), .b(ini_reset_n), .y(rst_t));    // 13H (OR body, bubbles)
+        rref_inv   a13a(.a(ini_reset_n), .y(ini));                       // 13A 11 -> 10
+    end endgenerate
     rref_inv   irst(.a(rst_t), .y(rst_n));                           // 04 at (2210,4285)
-    rref_inv   a13a(.a(ini_reset_n), .y(ini));                       // 13A 11 -> 10
+    // 12C second half; Pro: 92a, CP = 81.10 = NOR(QD, HU V2), MR = 83.12
     wire c12b_ck, c12b_qd;
     rref_nor2  e2(.a(c12b_qd), .b(v2), .y(c12b_ck));                 // 2E 3, 2 -> 1
     rref_393_half c12b(.cp(c12b_ck), .mr(ini), .qa(), .qb(), .qc(), .qd(c12b_qd));   // 12C 13, 12 / 8
     wire pwr;
     rref_inv   d11a(.a(c12b_qd), .y(pwr));                           // 11D 5 -> 6 (left)
-    assign latch_cl = pwr;
+    // Pro: /LATCH CL is 73.11; latch_cl is its inverse, as in the RTL
+    wire l73_n;
+    rref_inv   il73(.a(l73), .y(l73_n));
+    assign latch_cl = PRO ? l73_n : pwr;
     // ------------------------------------------------ end-of-game sequencer
-    wire mr11a, b11_11, ck11a, a_qa, a_qb, a_qc, a_qd, a13_8;
-    rref_and2  h2(.a(ini_reset_n), .b(game), .y(mr11a));             // 2H 10, 9 -> 8
-    rref_and2  b11c(.a(a_qd), .b(ini_reset_n), .y(b11_11));          // 11B 12, 13 -> 11
-    rref_nor2  f13a(.a(b11_11), .b(h5), .y(ck11a));                  // 13F 3, 2 -> 1
-    rref_390_half a11a(.cpa(ck11a), .cpb(a_qa), .mr(mr11a), .qa(a_qa), .qb(a_qb), .qc(a_qc), .qd(a_qd));
-    rref_inv   a13b(.a(a_qa), .y(a13_8));                            // 13A 9 -> 8
+    wire a_qa, a_qb, a_qc, a_qd;
     wire [9:0] y12a;
-    rref_7442  a12(.a(a_qb), .b(a_qc), .c(a_qd), .d(a13_8), .y_n(y12a));   // 15, 14, 13, 12
+    wire q56;                                                        // Pro: 56 Q
+    generate if (PRO) begin : g_pro_seq
+        // 92b (74393 half): CP 13 = 93.8 = AND(91.8, H5), 91.8 = NAND(QD,
+        // /RAM RESET); MR 12 = 73.6 = AND(/RAM RESET, 72.6), 72.6 =
+        // OR(/GAME END, 56.Q). C3 470 pF on MR and the 1000 pF on 93.8 are
+        // not reproduced. 82 (7442): A, B, C = QB, QC, QD; D = 91.6 =
+        // NAND(92a QD, 92b QA).
+        wire p72_6, mr92b, p91_8, ck92b, d82;
+        rref_or2   p72(.a(game_end_n), .b(q56), .y(p72_6));           // 72 5, 4 -> 6
+        rref_and2  p73b(.a(ram_reset_n), .b(p72_6), .y(mr92b));       // 73 4, 5 -> 6
+        rref_nand2 p91c(.a(ram_reset_n), .b(a_qd), .y(p91_8));        // 91 9, 10 -> 8
+        rref_and2  p93(.a(p91_8), .b(h5), .y(ck92b));                 // 93 9, 10 -> 8
+        rref_393_half b92(.cp(ck92b), .mr(mr92b), .qa(a_qa), .qb(a_qb), .qc(a_qc), .qd(a_qd));
+        rref_nand2 p91b(.a(c12b_qd), .b(a_qa), .y(d82));              // 91 5, 4 -> 6
+        rref_7442  p82(.a(a_qb), .b(a_qc), .c(a_qd), .d(d82), .y_n(y12a));   // 15, 14, 13, 12
+    end else begin : g_orig_seq
+        wire mr11a, b11_11, ck11a, a13_8;
+        rref_and2  h2(.a(ini_reset_n), .b(game), .y(mr11a));             // 2H 10, 9 -> 8
+        rref_and2  b11c(.a(a_qd), .b(ini_reset_n), .y(b11_11));          // 11B 12, 13 -> 11
+        rref_nor2  f13a(.a(b11_11), .b(h5), .y(ck11a));                  // 13F 3, 2 -> 1
+        rref_390_half a11a(.cpa(ck11a), .cpb(a_qa), .mr(mr11a), .qa(a_qa), .qb(a_qb), .qc(a_qc), .qd(a_qd));
+        rref_inv   a13b(.a(a_qa), .y(a13_8));                            // 13A 9 -> 8
+        rref_7442  a12(.a(a_qb), .b(a_qc), .c(a_qd), .d(a13_8), .y_n(y12a));   // 15, 14, 13, 12
+    end endgenerate
+    // Pro: output 3 (/2) = RAM R/W, inverter 64 (13 -> 12) -> OD. The other
+    // outputs' loads are taken as on the original (not followed on Pro).
     wire adr_inc, f13_4, dien_n, od;
     wire ld192_n = y12a[1], rw = y12a[2];
     rref_inv   d13a(.a(y12a[0]), .y(adr_inc));                       // 13D 5 -> 6
     rref_nor2  f13b(.a(y12a[3]), .b(pwr), .y(f13_4));                // 13F 5, 6 -> 4
     rref_inv   d11b(.a(a_qc), .y(dien_n));                           // 11D 5 -> 6 (right)
-    rref_inv   d13b(.a(rw), .y(od));                                 // 13D (RAM OD)
+    rref_inv   d13b(.a(rw), .y(od));                                 // 13D (RAM OD); Pro: 64
     // ------------------------------------------------ search clock
     wire q12b_n, ck12c, c_qa, c_qb, c_qc, d_qd2, d_qd1, ck11c3, bo_n, d13_8;
     rref_nor2  f12(.a(q12b_n), .b(osc14), .y(ck12c));                // 12F 5, 6 -> 4
@@ -167,11 +263,27 @@ module sheet_i_rank_reference #(parameter integer DOWN_INV = 1)(
     rref_393_half f9a(.cp(ck9f),   .mr(gnd), .qa(adr[0]), .qb(adr[1]), .qc(adr[2]), .qd(adr[3]));
     rref_393_half f9b(.cp(adr[3]), .mr(gnd), .qa(adr[4]), .qb(adr[5]), .qc(adr[6]), .qd(adr[7]));
     wire [15:0] db;
+    wire [15:0] mdo;                                                 // the comparators' A inputs
+    wire [15:0] cnt;
     genvar g;
-    generate for (g = 0; g < 4; g = g + 1) begin : digit
-        // 2111 (10F, 11F, 11E, 11H) and 8216 (6E, 5E, 4E, 3E) for digit g+1
-        rref_2111 ram(.a(adr), .rw(rw), .od(od), .ce1_n(gnd), .ce2_n(gnd), .io(db[4*g +: 4]));
-        rref_8216 drv(.di(p[4*g +: 4]), .db(db[4*g +: 4]), .dout(d[4*g +: 4]), .dien_n(dien_n), .cs_n(gnd));
+    generate if (PRO) begin : g_pro_mem
+        // Pro: 5101s R97, R96, R95, R74 (units .. thousands): DI = P, DO ->
+        // 88..85 A. Select pin 17 (CE2) on PWR-OK (R43/C4/D10: high while
+        // powered), pin 19 (/CE1) and 8 grounded. The D bus to K is taken
+        // from the 74192 rows (trace U7, probable).
+        for (g = 0; g < 4; g = g + 1) begin : digit
+            rref_5101 ram(.a(adr), .di(p[4*g +: 4]), .rw(rw), .od(od), .ce1_n(gnd), .ce2(vcc),
+                          .dout(db[4*g +: 4]));
+        end
+        assign mdo = db;
+        assign d = cnt;
+    end else begin : g_orig_mem
+        for (g = 0; g < 4; g = g + 1) begin : digit
+            // 2111 (10F, 11F, 11E, 11H) and 8216 (6E, 5E, 4E, 3E) for digit g+1
+            rref_2111 ram(.a(adr), .rw(rw), .od(od), .ce1_n(gnd), .ce2_n(gnd), .io(db[4*g +: 4]));
+            rref_8216 drv(.di(p[4*g +: 4]), .db(db[4*g +: 4]), .dout(d[4*g +: 4]), .dien_n(dien_n), .cs_n(gnd));
+        end
+        assign mdo = d;
     end endgenerate
     // ------------------------------------------------ the down-counter 7H..10H
     wire down;
@@ -180,7 +292,6 @@ module sheet_i_rank_reference #(parameter integer DOWN_INV = 1)(
     end else begin : g_drawn
         assign down = d_qd1;
     end endgenerate
-    wire [15:0] cnt;
     wire [3:0] bo;
     rref_192 h7 (.up(open), .down(down),  .load_n(ld192_n), .clr(gnd), .din(4'd9), .q(cnt[3:0]),   .bo_n(bo[0]), .co_n());
     rref_192 h8 (.up(open), .down(bo[0]), .load_n(ld192_n), .clr(gnd), .din(4'd9), .q(cnt[7:4]),   .bo_n(bo[1]), .co_n());
@@ -195,8 +306,8 @@ module sheet_i_rank_reference #(parameter integer DOWN_INV = 1)(
         // 6H, 5H, 4H, 3H: A = P-(g+1), B = 7H..10H
         rref_7485 hh(.a(p[4*g +: 4]), .b(cnt[4*g +: 4]), .i_gt(open), .i_eq(eq_h[g]), .i_lt(open),
                      .o_gt(), .o_eq(eq_h[g+1]), .o_lt());
-        // 6F, 5F, 4F, 3F: A = D-(g+1), B = 7H..10H
-        rref_7485 ff(.a(d[4*g +: 4]), .b(cnt[4*g +: 4]), .i_gt(open), .i_eq(eq_f[g]), .i_lt(open),
+        // 6F, 5F, 4F, 3F: A = D-(g+1), B = 7H..10H; Pro: 88..85, A = RAM DO
+        rref_7485 ff(.a(mdo[4*g +: 4]), .b(cnt[4*g +: 4]), .i_gt(open), .i_eq(eq_f[g]), .i_lt(open),
                      .o_gt(), .o_eq(eq_f[g+1]), .o_lt());
     end endgenerate
     wire own = eq_h[4], match = eq_f[4];
@@ -228,4 +339,19 @@ module sheet_i_rank_reference #(parameter integer DOWN_INV = 1)(
     wire [7:0] q14h;
     rref_259   h14(.a(r[0]), .b(r[1]), .c(r[2]), .d(d14), .e_n(e13q), .cl_n(r_qd), .q(q14h));
     assign flash = q14h[5:1];                                        // 5, 6, 7, 9, 10
+    // ------------------------------------------------ Pro: 56, 65, the 10,000 lamp
+    generate if (PRO) begin : g_pro_tenk
+        // 56 (7474 half): D 12 = Vcc, CK 11 = inverter (1 -> 2) of P-4D (its
+        // 680 pF not reproduced), /CL 13 = /RST, /PR not drawn. 65 (74123
+        // half): /A 1 = /GAME END, B 2 = 56.Q, /CLR 3 = Vcc, Q 13 = T.R.S.
+        // 56.Q -> 06 (13 -> 12) -> TR14 -> YOUR SCORE 10000POINT LAMP: lit
+        // while Q is high.
+        wire ck56;
+        rref_inv  p56i(.a(p[15]), .y(ck56));
+        rref_74   p56(.d(vcc), .ck(ck56), .cl_n(rst_n), .pr_n(open), .q(q56));
+        rref_123 #(.W(TRS_NS)) p65(.a_n(game_end_n), .b(q56), .clr_n(vcc), .q(trs));
+    end else begin : g_orig_tenk
+        assign q56 = gnd, trs = gnd;
+    end endgenerate
+    assign tenk = q56;
 endmodule

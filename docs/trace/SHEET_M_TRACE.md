@@ -3,14 +3,14 @@
 Source: Sega **Monaco GP (420-0358)**, PDF page **33**, drawing **M**, board
 **96578-P**, sheet **D-5/5**, "IC BOARD ASS'Y, B". Japanese caption:
 レスキュー車、持車、橋の絵かしとコントロール (rescue car, spare cars, bridge:
-drawing and control). Image: manual 420-0358, PDF page 33,
+drawing and control). Image: `schematics/pages/page33-sheet-M.png`,
 **10144 × 6624** pixels, upright, SHA-256
 `ba27ee679eac5d156d7efb483fed5711280bea69a1cd8e96829f94944e625fed`.
 
 **Status: complete pin-level trace, every connection followed on the scan
 (30 October 2026).** This file replaces the partial transcription of 23
 October, which is kept unchanged in
-the working notes (not published). That pass located every block
+[`work/SHEET_M_LOG.md`](work/SHEET_M_LOG.md). That pass located every block
 and settled the PROM enables, the output labels and IC43's tie pattern, but
 left the PROM address maps and the gate clusters open (its U1–U13). They
 are traced here. Every row below is a reading of the scan; the few readings
@@ -210,7 +210,7 @@ Described as wired; what the signals mean in play is not inferred here.
 | Pin | Function | Connection | Evidence |
 |---|---|---|---|
 | 1 | S | IC42.6; C9 470 pF to GND | scan |
-| 2, 11 | 1A, 3A | GND | scan, confirmed by the maintainer 23 Oct |
+| 2, 11 | 1A, 3A | GND | scan, confirmed by Aldo 23 Oct |
 | 5, 14 | 2A, 4A | Vcc | 〃 |
 | 3, 6, 10 | 1B, 2B, 3B | GND | 〃 |
 | 13 | 4B | Vcc | 〃 |

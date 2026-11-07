@@ -63,4 +63,5 @@ OUT=$ROOT/build/release/$(date +%Y%m%d)
 mkdir -p "$OUT"
 cp output_files/jtmonacogp.rbf "$OUT/MonacoGP_$(date +%Y%m%d).rbf"
 cp "$ROOT/cores/monacogp/cfg/monacogp.mra" "$OUT/Monaco GP.mra"
+cp "$ROOT/cores/monacogp/cfg/promonacogp.mra" "$OUT/Pro Monaco GP.mra"
 echo "PASS: $OUT"

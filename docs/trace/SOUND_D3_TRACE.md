@@ -1,7 +1,7 @@
 # Sound sheet D-3/7 — MY CAR SOUND engine oscillator
 
 Source: Sega Monaco GP manual **420-0358**, PDF page **17**, board
-**96598-P**, manual 420-0358, PDF page 17 (upright,
+**96598-P**, `schematics/pages/page17-sound-D3.png` (upright,
 10160 × 6624 pixels, 600 dpi). Drawing stamp: AUG 30 1979.
 PNG SHA-256: `526d786ee7ba3fa9a9b6f35b3a200565afc7a17753d66c1683d23b911c0bdfac`.
 

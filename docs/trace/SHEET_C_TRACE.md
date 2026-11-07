@@ -3,13 +3,13 @@
 Source: Sega **Monaco GP (420-0358)**, PDF page **30**, drawing **C**, board
 **96578-P**, sheet **D-2/5**, "IC BOARD ASS'Y, B". Japanese caption:
 映像,色出し統合 (picture, colour output, combination). Image:
-manual 420-0358, PDF page 30, **10160 × 6624** pixels, SHA-256
+`schematics/pages/page30-sheet-C.png`, **10160 × 6624** pixels, SHA-256
 `30a9b08093ddcb65b8cc07c0b7e517e782fbb36008d095f80fe9e576d7ac216f`.
 
 **Status: complete pin-level trace, every connection followed on the scan
 (30 October 2026).** This file replaces the partial transcription of 23
 October, which is kept unchanged in
-the working notes (not published). That pass read the input
+[`work/SHEET_C_LOG.md`](work/SHEET_C_LOG.md). That pass read the input
 labels and the large blocks but left the gate network between them
 untraced (its U1). Every row below is a reading of the scan; the few that
 remain uncertain are marked and listed under "Unresolved".

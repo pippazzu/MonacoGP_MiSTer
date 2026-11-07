@@ -49,8 +49,8 @@ During blanking, `H6 AND NOT H5` is true for H=$1C0..$1DF: **32 clocks of HS**.
 Normalized display positions are active 0..359, front porch 360..391,
 sync 392..423, back porch 424..455.
 
-Reference crops: reload,
-sync decode.
+Reference crops: [reload](source-excerpts/horizontal-reload.png),
+[sync decode](source-excerpts/horizontal-sync.png).
 
 ## Vertical path
 
@@ -76,7 +76,7 @@ The sequence V=$008..$0FF (248 lines), then $1F0..$1FF (16 lines), totals
 V=$1F4..$1F7: **four lines**. In display order this gives 240 active lines,
 four front-porch lines, four sync lines and sixteen back-porch lines.
 
-Reference crop: vertical logic.
+Reference crop: [vertical logic](source-excerpts/vertical-logic.png).
 
 ## Crystal and implementation qualifications
 
@@ -84,7 +84,7 @@ The X1 annotation appears to read **14.305** in the scan; the two outgoing
 frequency labels are only “14 MHz” and “7 MHz”. The exact crystal frequency is
 **not independently confirmed**. The provisional parameter is 14,305,000 Hz,
 divided by two, yielding 7,152,500 pixel clocks/s and approximately 59.414 Hz.
-The scan excerpt is included here for review.
+The scan excerpt is included [here](source-excerpts/crystal.png) for review.
 
 Update, 22 October 2026: photos of a real later-revision video board
 (97092-P, dated 800602) in github.com/stonedDiscord/MonacoGP show the crystal
@@ -100,7 +100,7 @@ differences, both errors in the redraw:
 
 - It joins V8 and H8 into one net.
 - It uses a 74LS20 (NAND) for IC101 pins 9, 10, 12, 13 -> 8. The scan
-  (vertical logic) draws an AND body with
+  ([vertical logic](source-excerpts/vertical-logic.png)) draws an AND body with
   inverted inputs, a NOR that is high when V7..V4 are all zero, as implemented.
   The redraw makes the same NAND-for-NOR substitution for sheet G IC57.
 
@@ -124,7 +124,8 @@ The H/V counters in `jtmonacogp_timing` still start from a fixed state under
 the game reset, so the video stops while JTFRAME holds the game in reset (at
 power-up and during an MRA load). JTFRAME's `jtframe_resync` then needs a few
 frames to settle, and a CRT may roll briefly. The original counters have no
-global reset; they run through the reset.
+global reset; letting them run through the reset is listed in
+[CIRCUIT_STATUS.md](CIRCUIT_STATUS.md).
 
 The TTL reference test checks every settled H/V counter value, blank signal and
 sync signal against a separately connected chip model over 361,152 pixels.

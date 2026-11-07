@@ -41,7 +41,7 @@ Analog part, per step in this order (op-amps ideal inside their output
 range, capacitors stepped by Euler, as the other sheets):
   vibrato   IC1 a integrator (C3 0.47 uF, R14 100K from the R13 15K / R12
             47K divider, + input at half of it through R15/R16 51K, R5 51K
-            to TR1) and the IC1 b Schmitt (R17 100K to 6 V, R19 100K from
+            to TR1) and the IC1 b Schmitt (R17 100K to 6 V, R19 180K from
             pin 7) driving TR1 through R18 10K and D1. TR1 is a switch: its
             current through R5 at saturation (VCE_SAT_TR1).
   notes     IC1 c and d: inverting summers (R4/R3 39K in, R9/R6 10K
@@ -307,6 +307,10 @@ K_ROLL=1-math.exp(-DT/(6.2e3*680e-12))
 # across them (0 .. 3.5 V)
 T_D4=P.Table.build(0.0,1/128,449,lambda v:P.diode_i_series(v,1e3+100.0))
 
+def schmitt_ic1b(out):
+    """IC1 b's + input: R17 100K to 6 V, R19 180K from its output."""
+    return V6+(out-V6)*100e3/(100e3+180e3)
+
 class D5:
     def __init__(self,vr=None,prom=None,c106=C106):
         # trimmers (ohm): upper bank VR4 (A) VR5 (B) VR6 (C), lower VR1 VR2 VR3
@@ -352,7 +356,7 @@ class D5:
         i=i14-(i5 if tr_on else 0.0)        # into C3 from the - input side
         self.lfo-=i*DT/0.47e-6
         self.lfo=min(max(self.lfo,VOL),VOH)
-        self.o1_7=O1_7_HIGH if self.lfo<(V6+self.o1_7)/2 else VOL
+        self.o1_7=O1_7_HIGH if self.lfo<schmitt_ic1b(self.o1_7) else VOL
         return self.lfo
 
     def summer(self,branches,sel,radj,cpl_q,lfo):

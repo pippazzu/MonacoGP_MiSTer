@@ -8,7 +8,11 @@
 // nanoseconds, so the 48 MHz period must not be rounded (at 1 ps it would run
 // 32 ppm slow, about 30 pixels over one 0.1336 s pulse).
 `timescale 1ns/1fs
-module tb_player;
+// PRO = 1 (tests/tb_player_pro.v): the Pro board's sheet G, with PLAYER ST
+// (Pro IC31, pro/docs/trace/BONUS_INPUTS_TRACE.md) compared with the
+// reference's gate and checked against the trace's function; the frame dump
+// goes to player-frames-pro.txt.
+module tb_player #(parameter integer PRO = 0);
     reg clk=0, rst=1;
     always #10.416666667 clk=~clk;                   // 48 MHz
 
@@ -62,6 +66,8 @@ module tb_player;
     wire [8:0] a127, a128, a129, a130;
     wire d_body_n, d_tire_n, d_bl_n, d_player_n, d_player, d_spd_n, d_spd;
     wire d_pulse_n, d_st_n, d_score_n, d_66_3, d_vwin, d_hwin, d_strobe_n, d_68_3, d_19q;
+    wire d_pst, r_pst;              // PLAYER ST (Pro)
+    wire pro = PRO != 0;
     wire [7:0] d_hc, d_vc, d_bus;
     wire [3:0] d_en, d_38;
     wire [1:0] d_mux;
@@ -70,6 +76,7 @@ module tb_player;
         .acc1_n(s_acc1_n),.home_pos_n(s_home_n),.coin_in_n(t_coin_n),
         .extend_n(s_extend_n),.gravel_n(s_gravel_n),.slide_n(s_slide_n),
         .vs4(t_vs4),.vs8(t_vs8),.vs16(t_vs16),.vs32(s_vs32),.ic51_3(t_51_3),
+        .pro(pro),.player_st(d_pst),
         .pr127_addr(a127),.pr128_addr(a128),.pr129_addr(a129),.pr130_addr(a130),
         .pr127_q(prom_q[2*8+:8]),.pr128_q(prom_q[3*8+:8]),
         .pr129_q(prom_q[4*8+:8]),.pr130_q(prom_q[5*8+:8]),
@@ -104,6 +111,7 @@ module tb_player;
         .f_home_pos_n(r_home_n),.a_coin_in_n(r_coin_n),.a_extend_n(r_extend_n),
         .d_gravel_n(r_gravel_n),.d_slide_n(r_slide_n),
         .h_vs4(r_vs4),.h_vs8(r_vs8),.h_vs16(r_vs16),.h_vs32(r_vs32),.ic51_3(r_51_3),
+        .pro(pro),.player_st(r_pst),
         .hc(r_hc),.vc(r_vc),.vwin(r_vwin),.hwin(r_hwin),.strobe_n(r_strobe_n),
         .prom_en(r_en),.bus(r_bus),.y1(r_y1),.y2(r_y2),
         .player_body_n(r_body_n),.tire_n(r_tire_n),.player_bl_n(r_bl_n),
@@ -111,10 +119,10 @@ module tb_player;
         .acc1_pulse_n(r_pulse_n),.acc1_st_n(r_st_n),.score_st_n(r_score_n),
         .ic66_3(r_66_3),.ic38_q(r_38),.ic68_3(r_68_3),.ic19_q(r_19q));
 
-    wire [49:0] dut_nets = {d_hc,d_vc,d_vwin,d_hwin,d_strobe_n,d_en,d_bus,d_mux,
+    wire [50:0] dut_nets = {d_pst,d_hc,d_vc,d_vwin,d_hwin,d_strobe_n,d_en,d_bus,d_mux,
         d_body_n,d_tire_n,d_bl_n,d_player_n,d_player,d_spd_n,d_spd,d_pulse_n,d_st_n,
         d_score_n,d_66_3,d_38,d_68_3,d_19q};
-    wire [49:0] ref_nets = {r_hc,r_vc,r_vwin,r_hwin,r_strobe_n,r_en,r_bus,r_y2,r_y1,
+    wire [50:0] ref_nets = {r_pst,r_hc,r_vc,r_vwin,r_hwin,r_strobe_n,r_en,r_bus,r_y2,r_y1,
         r_body_n,r_tire_n,r_bl_n,r_player_n,r_player,r_spd_n,r_spd,r_pulse_n,r_st_n,
         r_score_n,r_66_3,r_38,r_68_3,r_19q};
     wire [1:0] d_code = !d_body_n ? 2'd1 : !d_tire_n ? 2'd2 : !d_bl_n ? 2'd3 : 2'd0;
@@ -124,6 +132,7 @@ module tb_player;
     real px_ns = 1.0e9/7152500.0;
     integer fp, n, pixel=0, frames=0, compared=0, window_px=0, car_px=0;
     integer edge_mask=0, d_edges=0, r_edges=0, rise119=-1, pulse119=0;
+    integer pst_px=0, pst_lines=0, pst_blank=0;
     integer d_edge_at[0:63], r_edge_at[0:63];
     reg comparing=0, dumping=0, vs_q=0;
     reg [1:0] d_mono_q=0, r_mono_q=0;
@@ -166,6 +175,19 @@ module tb_player;
             if ((!d_strobe_n) !== exp_win)
                 $fatal(1,"car window at x=%0d y=%0d (active %b): strobe %b",x,y,active,d_strobe_n);
             if (exp_win) window_px = window_px + 1;
+            // PLAYER ST (Pro IC31 = AND(HWIN, HC4)): high for HC = 0x90..0x9F
+            // while /COIN IN is low, never on the original board. With
+            // PL-H-ST at x=35, HC = 0x90 at x=180. No vertical term: it is
+            // on every line on which HC runs, in the blanking too.
+            if (d_pst !== (pro && !t_coin_n && d_hc[7:4] == 4'h9))
+                $fatal(1,"PLAYER ST %b at x=%0d y=%0d: HC %h /COIN IN %b (PRO %0d)",d_pst,x,y,d_hc,t_coin_n,PRO);
+            if (active && d_pst !== (pro && !t_coin_n && x>=180 && x<196))
+                $fatal(1,"PLAYER ST %b at x=%0d y=%0d (PRO %0d)",d_pst,x,y,PRO);
+            if (d_pst) begin
+                pst_px = pst_px + 1;
+                if (!active) pst_blank = pst_blank + 1;
+                else if (x == 180) pst_lines = pst_lines + 1;
+            end
             if (d_code != 0) begin
                 car_px = car_px + 1;
                 if (!exp_win) $fatal(1,"car pixel outside the window at x=%0d y=%0d",x,y);
@@ -226,7 +248,8 @@ module tb_player;
         if (!$value$plusargs("ROM=%s",path) || !$value$plusargs("OUT=%s",outdir))
             $fatal(1,"missing ROM/OUT");
         $readmemh(path,image);
-        fp=$fopen($sformatf("%0s/player-frames.txt",outdir),"w");
+        if (PRO) fp=$fopen($sformatf("%0s/player-frames-pro.txt",outdir),"w");
+        else fp=$fopen($sformatf("%0s/player-frames.txt",outdir),"w");
         if (!fp) $fatal(1,"cannot open frame dump");
         repeat(4) @(negedge clk);
         rom=1;
@@ -293,6 +316,12 @@ module tb_player;
                  compared,frames-1,d_edges,edge_mask);
         $display("PASS player: car window x=164..195 y=104..135 in every frame (%0d window pixels, %0d car pixels); 74123/74279 function-table cases pass; longest IC119 pulse %0d pixels (%0.4f s)",
                  window_px,car_px,pulse119,pulse119*px_ns*1.0e-9);
+        if (PRO) begin
+            if (pst_lines == 0 || pst_blank == 0)
+                $fatal(1,"PLAYER ST on %0d visible lines, %0d pixels in the blanking",pst_lines,pst_blank);
+            $display("PASS player (Pro): PLAYER ST (IC31 = AND(HWIN, HC4)) matches the reference and is high exactly at HC = 0x90..0x9F with /COIN IN low: x=180..195 on %0d visible lines, %0d pixels in all, %0d of them in the blanking (no vertical term)",
+                     pst_lines,pst_px,pst_blank);
+        end
         $finish;
     end
 endmodule

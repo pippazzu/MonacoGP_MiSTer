@@ -1,7 +1,7 @@
 # Handle (steering) board 96599-P
 
 Source: Sega **Monaco GP (420-0358)** manual, PDF page **14**,
-manual 420-0358, PDF page 14 (3328 × 2560, stored
+`schematics/pages/page14-steering-board-96599.png` (3328 × 2560, stored
 upright), "HANDLE, LOGIC DIAGRAM (ACCELERATOR BOARD)", title block
 "96599-P IC BOARD ASS'Y". Coordinates are stored-image pixels. Read on
 full-resolution crops (150,450)-(1200,2000), (1150,600)-(2000,2000),

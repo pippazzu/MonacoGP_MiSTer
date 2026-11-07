@@ -19,7 +19,7 @@ stimulus. It is not the complete game:
   the rest of sheet I (high-score memory, search, ranks, N, R, flashing),
   the rank latches (K) and the display scan (J) are in too
   ([SHEET_I_LOGIC.md](SHEET_I_LOGIC.md)), with one correction (7H's DOWN
-  clock, from the maintainer's photo of the panel); the panel is drawn on screen
+  clock, from Aldo's photo of the panel); the panel is drawn on screen
   only while button 3 (Scoreboard) is held (`jtmonacogp_panel.v`, not
   original circuitry);
 - the handle board (96599) is in (31 October, `jtmonacogp_handle.v`): its
@@ -43,7 +43,7 @@ stimulus. It is not the complete game:
 
 The two boards meet through two cables, E to B (44 pins) and F to C (56
 pins). The logic sheets do not draw them. A table of both cables is in an
-owner's notes from 1999 (supplied by the maintainer, 30 October; not part of the
+owner's notes from 1999 (supplied by Aldo, 30 October; not part of the
 manual):
 - F to C is straight: F*x* to C*x*;
 - E to B is straight for E1–E16 and EA–ES, except that EN is printed "EN";
@@ -65,7 +65,7 @@ text window (GAME OVER / EXTENDED PLAY) while Vs/16 is high and pad E1 or
 /EX. SIGNAL is low. With COIN IN on E1, the window opens before a game,
 showing GAME OVER, and during a game only while an extend is signalled,
 showing EXTENDED PLAY. With /COIN IN it would never show GAME OVER and would
-show EXTENDED PLAY in every game. The real game (30 October) shows red
+show EXTENDED PLAY in every game. The real game (Aldo, 30 October) shows red
 GAME OVER above blue DEPOSIT COIN before a game, and the 1999 notes describe
 the same, so pad E1 carries COIN IN.
 
@@ -141,7 +141,8 @@ meet on the same raster position, the game module lines them up:
 
 The handle board's pulses come from the dial. JTFRAME's joystick emulation
 steps the dial 16 times a frame at its highest sensitivity (12, 8 and 4 at
-the others; `JTFRAME_DIAL_EMUSENS=16`, twice JTFRAME's default on request, 3 November 2026), four handle pulses a frame; the real rate depends on how fast the wheel turns and on the
+the others; `JTFRAME_DIAL_EMUSENS=16`, twice JTFRAME's default at Aldo's
+request, 3 November 2026), four handle pulses a frame; the real rate depends on how fast the wheel turns and on the
 slotted disc, which is not drawn.
 
 ## Tests
@@ -150,7 +151,7 @@ slotted disc, which is not drawn.
 with `FAST = 1` (one-shot capacitors / 1000, the 555's / 100). See its
 header for the checks.
 
-Results, 30 October 2026:
+Results, 30 October 2026 ([reports/connected-2026-10-30](../reports/connected-2026-10-30/README.md)):
 79 frames from power-up, every sheet module settled before its next
 capture, no unknown video. Before the coin the timer read 00, sheet B
 showed GAME OVER (4 758 pixels) and DEPOSIT COIN (23 052). The coin held
@@ -166,7 +167,7 @@ Quartus 17.0 Lite compiles the whole game module for Cyclone V (virtual
 pins): 2 197 ALMs (5 %), 876 registers, setup slack +10.68 ns at 48 MHz.
 
 `tests/tb_game.v` still checks the other five displays; their pictures are
-unchanged (pixel for pixel against the working notes (not published) and
+unchanged (pixel for pixel against `reports/scenery-view-2026-10-29/` and
 the previous run).
 
 The whole `scripts/run_tests.py` passes on this source (24 checks, about
@@ -179,23 +180,23 @@ several initialised outputs after one `output reg`. Same meaning.
 ## The real game, for comparison
 
 Observations of real machines, to check the connected sheets against as
-they fill in. Sources: The maintainer's videos and play (30 October), and an owner's
-notes from 1999 that the maintainer supplied (play on a cockpit cabinet, the manual's
+they fill in. Sources: Aldo's videos and play (30 October), and an owner's
+notes from 1999 that Aldo supplied (play on a cockpit cabinet, the manual's
 game description). None of this is used to build the circuits.
-- **House rows (frames from several recordings, 30 October):** the
+- **House rows (frames from several recordings, Aldo, 30 October):** the
   left house row ends with a dark block on its right and the right row has
   its dark block on its left. In the simulated picture the left row's house
   starts one line (one pixel on the turned screen) out of step with its
   window, so the house's first line shows at the far end after a one-line
   gap; the recordings show the same layout, so this is the board's, not a
   fault of the core's sheet B or D timing. Do not "correct" it.
-- **Start of a game (photo from a recording, 30 October):** the red player car at the
+- **Start of a game (photo from a recording, Aldo, 30 October):** the red player car at the
   lower right, on the green belt right of the road. Colours on that screen,
   for comparing sheet C: road dark grey with a purple cast, green belts
   along both road edges, yellow sand verges with green bushes, magenta and
   pink houses with a dark band between them, a blue-and-green area at the
   top left; other cars yellow, pink/magenta and green.
-- **Extended play (photo, 30 October; score 6473, timer 00):** the
+- **Extended play (photo, Aldo, 30 October; score 6473, timer 00):** the
   road is bright blue; the verges blue with orange/peach speckles, the
   bushes orange star shapes; the green belts grey/white speckle; no dim
   (grey) road. Sheet C's wiring gives the blue road (IC14 with 7M, masked
@@ -204,11 +205,11 @@ game description). None of this is used to build the circuits.
   scenery data and is to be compared with a simulated frame. The other cars
   and the rescue car keep their black outlines on the blue road (photo of a
   real cabinet, 31 October); the bridge warning sign too.
-- **Car outline missing in an accident on the green belt (30
+- **Car outline missing in an accident on the green belt (Aldo, 30
   October):** first seen on the MiSTer build (photos of the CRT): the red
   player car, spinning after hitting another car, loses most of its black
   outline in the frames where it is on the green belt; on the road the spin
-  images are whole. The maintainer confirmed that the real board does the same. As
+  images are whole. Aldo confirmed that the real board does the same. As
   drawn on sheet G, the slide one-shot IC119 (fired by the car body on
   /GRAVEL or /SLIDE, held 0.13 s) enables the slide images PR128 while the
   accident enables PR129/PR130, on the same bus; the core takes the low
@@ -223,7 +224,7 @@ game description). None of this is used to build the circuits.
   93 s to 00 (SHEET_A_LOGIC.md).
 - **End of a game:** at 00 the game ends unless extended play has been
   earned; then it goes on, with no time limit, until the lives run out, so
-  in principle it can last indefinitely (30 October). Sheet A wires
+  in principle it can last indefinitely (Aldo, 30 October). Sheet A wires
   exactly this: at 00 with an extend earned it sets EXTEND instead of
   clearing the game, and GAME OVER from sheet M clears it.
 - **Driving:** the pedal has off and three levels; the car moves up the
@@ -253,18 +254,18 @@ game description). None of this is used to build the circuits.
 
 ## Open items
 
-- **Sound, reported on a MiSTer (2 November, build 20261102d):**
+- **Sound, reported on Aldo's MiSTer (2 November, build 20261102d):**
   passing cars sound bad about one time in two, the slip zone is too low,
   the rescue siren's pitch is about 30 % high against a board recording,
   and the siren is sometimes missing until the rescue car is halfway down
   the screen. Measurements and next steps: SOUND_LOGIC.md, "Open issues
   reported on the MiSTer".
-- **Extended play colours (a MiSTer, 30 October build, 31 October):**
+- **Extended play colours (Aldo's MiSTer, 30 October build, 31 October):**
   - the other cars and the rescue car showed no black outline on the blue
     road (the blue showed through), while the bridge warning sign kept its
     black. Fixed on 31 October: IC5's A inputs are ROAD, not /ROAD (the
     arrow has no overbar), so the road's blue comes through IC14, which the
-    cars mask (SHEET_C_LOGIC.md). Confirmed on a MiSTer with the
+    cars mask (SHEET_C_LOGIC.md). Confirmed on Aldo's MiSTer with the
     31 October build: the cars have the right colours. Screens changing in
     mid-game (the tunnel turning into the slip screen) came from the score
     stand-in;
@@ -276,7 +277,7 @@ game description). None of this is used to build the circuits.
   - the gravel zone has never appeared in several games: the stand-in's
     codes were the plain hundreds digit, not sheet I's S-100 code. To check
     again with the real score counter.
-- **Extends every 2,000 points** (recordings from several machines, the maintainer,
+- **Extends every 2,000 points** (recordings from several machines, Aldo,
   31 October). With sheet I's 2E-1 drivers taken as inverters ("16" is
   printed above them) S-100-D' would fall at x800 and give extends at
   1,800; as non-inverting buffers (the triangles have no bubbles) it falls
@@ -284,7 +285,7 @@ game description). None of this is used to build the circuits.
   same choice makes sheet D's zone starts match the owner's table exactly
   (pools x185/x685, slip 295, bridge 595, tunnel 795, gravel 095), so the
   core takes 2E-1 as buffers.
-- **An other car drawn split** (a MiSTer screenshot, 31 October, timed
+- **An other car drawn split** (Aldo's MiSTer screenshot, 31 October, timed
   play): the cyan car's lower half is shifted sideways from its upper half.
   Not yet examined (sheet H's position counters reloading within the car,
   or the board's own behaviour?).
@@ -298,7 +299,7 @@ game description). None of this is used to build the circuits.
 - **The car starts beside the road, as on the real game.** At the coin,
   sheet F loads the player car's targets with 0x70 and 0x0F: the lower
   right of the upright screen. A photo of the real game at the start of a
-  game (30 October) shows the red car there, on the right-hand green
+  game (Aldo, 30 October) shows the red car there, on the right-hand green
   belt beside the road, so this is the board's behaviour, not a fault of the
   core's start values for sheet B's road counters (M1V, M2V at D0 and 40;
   the board has no reset for them). Off the road sheet F's slip and pool
@@ -314,7 +315,7 @@ game description). None of this is used to build the circuits.
   and every 64 in high gear below 7 (SHEET_F_LOGIC.md), so about 2 s to
   reach 6 in low gear.
 - Sheet C (30 October): its colours are in the picture. Compare with the
-  real game: sheet C puts DEPOSIT COIN in the cyan plane, which the maintainer
+  real game: sheet C puts DEPOSIT COIN in the cyan plane, which Aldo
   describes as blue, and the bare road is dim white (grey).
 - Sheets I, J, K (1 November): checked against their pin-wired references
   only. Not yet seen on the MiSTer; compare the panel with the real one
@@ -325,7 +326,7 @@ game description). None of this is used to build the circuits.
 - The first timer count. By sheet A the timer holds 90 while /COIN & TEST
   is low and turns to 89 as GAME rises: the 555's output rises when GAME
   releases its reset, and IC21 counts on that rise (tests/tb_play.v checks
-  it). On a 59.94 fps video of the real game (30 October) the timer
+  it). On a 59.94 fps video of the real game (Aldo, 30 October) the timer
   reads 00 until start is pressed, then shows 90 for 4 frames, and 89 as
   the car appears. Those 4 frames are the time from the switch to GAME:
   the pedal sets GAME through ACCE. ST., which waits for a timing step on
@@ -347,7 +348,7 @@ game description). None of this is used to build the circuits.
   /SLIPZONE) and the hi-score tune (pad 3 from sheet A's /HISCORE, MUTE
   from sheet A's pad A26, its alarm line to D-4's mute gate) are built.
   The output gain is provisional (16,384 per volt at pad 13)
-  until all sounds are built and the balance is compared with the maintainer's
+  until all sounds are built and the balance is compared with Aldo's
   recordings of a real board. R414 (22K?) sets every sound's level in the
   mix and is read from the overview only. The hi-score tune's notes and
   tempo are settings (the printed notes, 42 ms a clock; SOUND_LOGIC.md,

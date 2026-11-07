@@ -2,7 +2,7 @@
 
 Source: Sega **Monaco GP (420-0358)**, PDF page **32**, drawing **E**, board
 **96578-P**, sheet **D-4/5**, "IC BOARD ASS'Y, B". The title block also reads
-同期信号 (sync signals). Image: manual 420-0358, PDF page 32,
+同期信号 (sync signals). Image: `schematics/pages/page32-sheet-E.png`,
 **10160 × 6624** pixels, SHA-256
 `bc4924463a0dd6ac99575c0a12f0046962a161a4bffa972dfdb42065b882162e`.
 
@@ -21,7 +21,7 @@ It corrects one line of TIMING.md (IC95, see "Corrections to TIMING.md").
 
 - Every IC section, pad and arrow on the sheet was followed on zoomed crops
   of the scan, wire by wire.
-- Doubtful junctions were measured with a dot-size measuring script. A
+- Doubtful junctions were measured with `tools/schematic/dotsize.py`. A
   junction dot measures 18–24 px; a plain crossing 14–16 px.
 - stonedDiscord's KiCad redraw of board 96578 was used only to predict
   which pins to follow. That board is drawn but not routed, so it is another

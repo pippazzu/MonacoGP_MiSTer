@@ -1,7 +1,7 @@
 # Sound sheet D-5/7 — fanfare, hi-score oscillators and 6 V bias
 
 Source: Sega Monaco GP manual **420-0358**, PDF page **19**, board
-**96598-P**, manual 420-0358, PDF page 19 (upright,
+**96598-P**, `schematics/pages/page19-sound-D5.png` (upright,
 10160 × 6624 pixels, 600 dpi). Drawing stamp: AUG 30 1979.
 PNG SHA-256: `93493de60d22176f7e527f03888ffedc8495960aca59bca94dd6ef4d94106f92`.
 
@@ -101,7 +101,7 @@ IC6.7 → east to x≈4245, south to y≈5290, east along the lower horizontal �
 - Slow IC1 first section: R14 100K → −2; C3 .47µ5% nonpolar feedback 2↔1.
  R15/R16 each 51K form +3 input divider. Feed to R14/R15 comes from
  R13 15K to 12V / R12 47K to GND midpoint.
-- IC1.1 → IC1.6; +5 has R17 100K to 6V and R19 100K feedback from 7.
+- IC1.1 → IC1.6; +5 has R17 100K to 6V and R19 180K feedback from 7 (corrected 5 November 2026 from 100K: the scan's second digit is solid beside R17's open zero, and Monza GP's redraw of this sheet shows a clear 180K).
  IC1.7 → R18 10K → D1 (MA15x, final digit uncertain) → TR1 base; R11 2.2K base → GND, emitter GND;
  collector → R5 51K → IC1.2.
 - IC1.1 also feeds C2 4.7µ/R8 1M → IC1.9 and C1 4.7µ/R7 1M → IC1.13.

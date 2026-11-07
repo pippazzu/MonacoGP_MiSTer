@@ -1,7 +1,7 @@
 # Sheet J — score display scan, data selection and LED wiring
 
 Source: Sega **Monaco GP (420-0358)**, PDF page **22**,
-manual 420-0358, PDF page 22, **10160 × 6624**.
+`schematics/pages/page22-sheet-J-score.png`, **10160 × 6624**.
 SHA-256: `df8272b942f0271e5a1849a965b6f037cff82ba3c64a4a8877f651df5f50bf14`.
 
 **The stored PNG is upside down.** Coordinates below use upright frame
@@ -461,8 +461,8 @@ user's visual review, not by KiCad.
 
 This consolidated trace (prepared with ChatGPT, user readings J-V01…J-V04)
 was checked on fresh crops of the 180°-rotated `page22-sheet-J-score.png`
-by a second reader. The first pass is kept unchanged as the working notes (not published);
-the review crops and their coordinates are in the working notes (not published).
+by a second reader. The first pass is kept unchanged as `work/SHEET_J_LOG.md`;
+the review crops and their coordinates are in `work/sheet-jk-review/`.
 
 Confirmed on the scan:
 

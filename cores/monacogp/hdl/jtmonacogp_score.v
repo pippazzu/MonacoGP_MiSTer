@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // 96597-P sheet I (manual 420-0358, PDF page 23): the score counter and the
 // lines it gives the game logic. Pin-level reading:
-// docs/trace/SHEET_I_TRACE.md (the high-score memory, comparators and
+// docs/trace/work/SHEET_I_LOG.md (the high-score memory, comparators and
 // rank logic on the same sheet are not in this module yet).
 //
 // - 7F, 8F (74390): four BCD decades P-1 (units) .. P-4 (thousands),
@@ -25,12 +25,28 @@
 // them. The counters step at the enable after the gated clock falls, and
 // the outputs follow at once. The 74390 ripple and the 470 pF on 13E's /S
 // are not reproduced.
+//
+// Pro Monaco GP (manual 420-0525, sheet I, PDF page 18), selected by
+// pro = 1: pro/docs/trace/SHEET_F_BONUS_TRACE.md rows I01-I05 and
+// pro/docs/trace/SHEET_I_TRACE.md ("Sequencer, resets and the write").
+// - /SCORE CP (pad H16) goes straight to the first decade's clock (IC75
+//   CKA): there is no 9999 stop, the four decades count its falling edges
+//   and wrap from 9999 to 0000 (sheet I's flip-flop 56 records the carry,
+//   in jtmonacogp_rank.v);
+// - RST is 91.3 = NAND(/COIN & TEST, 73.11), 73.11 = /INI. RESET AND
+//   /RAM RESET: the RAM RESET switch clears the score too.
+// The S-100 lines and SP. CONT. stay as on the original board: their Pro
+// wiring (buffers 63/17, an extra NAND 72) was not traced at pin level.
+// With pro = 0, /RAM RESET is ignored.
 module jtmonacogp_score(
     input             clk, rst,
     input             pxl_cen,
     input             score_cp_n,     // /SCORE CP (F), pad 23
     input             coin_test_n,    // /COIN & TEST (A), pad b
     input             ini_reset_n,    // /INI. RESET (A), pad 24
+    // Pro board; ignored while pro = 0
+    input             pro,            // 1: Pro Monaco GP board
+    input             ram_reset_n,    // /RAM RESET (SW.1)
     output     [15:0] digits,         // {P-4, P-3, P-2, P-1} D..A
     output      [3:0] s100,           // line levels {S-100-D, -C, -B, -A}
     output            s100_d2,        // line level S-100-D' (to A, pad A30)
@@ -38,9 +54,11 @@ module jtmonacogp_score(
 );
     reg  [3:0] p1, p2, p3, p4;
     reg        g_l, q13e;
-    wire       rst_t   = ~(coin_test_n & ini_reset_n);              // 13H
+    // 13H; Pro: 91.3, with 73.11 = /INI. RESET AND /RAM RESET
+    wire       rst_t   = ~(coin_test_n & ini_reset_n & (ram_reset_n | ~pro));
     wire       n9999   = ~(p1[0] & p1[3] & p2[0] & p2[3] & p3[0] & p3[3] & p4[0] & p4[3]); // 12F
-    wire       g       = ~(score_cp_n & n9999);                      // 13H.11
+    // 13H.11; Pro: /SCORE CP itself
+    wire       g       = pro ? score_cp_n : ~(score_cp_n & n9999);
     wire       s13e_n  = ~(p4[1] & p4[2]);                           // 13H.6
     assign digits  = {p4, p3, p2, p1};
     assign s100    = {p3[3] | ~p2[2], p3[2], p3[1], p3[0]};
@@ -64,7 +82,7 @@ module jtmonacogp_score(
                 // while it lasts is lost, so the next one is judged from
                 // the cleared state.
                 {p1, p2, p3, p4} <= 0;
-                g_l <= ~score_cp_n;
+                g_l <= pro ? score_cp_n : ~score_cp_n;
             end else if (g_l && !g) begin
                 g_l <= g;
                 // each decade's QD falling clocks the next

@@ -3,7 +3,7 @@
 Source: Sega **Monaco GP (420-0358)**, PDF page **15**, board **96598-P**,
 sheet **D-1/7**. Drawn titles: "SLIP ZONE SOUND" (top), "96598-P (D-1/7)
 OSCILLATOR" (bottom). Transcribed from the supplied
-manual 420-0358, PDF page 15, **3328 × 2560** pixels, **300 dpi** (half the
+`schematics/pages/page15-sound-D1.png`, **3328 × 2560** pixels, **300 dpi** (half the
 resolution of the logic sheets), stored upright. Source PNG SHA-256:
 `12a8b3cddf641a3193074c3721b3eaa7f373acaaf8d07b5b3b7c08ca7e0b282c`.
 
@@ -304,7 +304,7 @@ overlap remains qualified under U3; do not repeat the answered dot checks.
 
 ## Review, 31 October 2026 (Claude)
 
-Checked against manual 420-0358, PDF page 15 (hash as above) on
+Checked against `schematics/pages/page15-sound-D1.png` (hash as above) on
 full-resolution crops. All routes in the tables are confirmed, including
 R345 (10 kΩ), the 12 V leg of R352 (its dashed line crosses the 4016 input
 wire without a dot and ends on R352), and the 2SC458 with R343 and R308.

@@ -152,6 +152,9 @@ module sheet_g_reference(
     input h_vs4, h_vs8, h_vs16, h_vs32,
     // IC51 pin 3 is not drawn
     input ic51_3,
+    // Pro board: pro = 1 adds the Pro sheet G gate to sheet N (PLAYER ST)
+    input pro,
+    output player_st,
     // Observation
     output [7:0] hc, vc,
     output vwin, hwin, strobe_n,
@@ -211,6 +214,18 @@ module sheet_g_reference(
     ref_7425 ic57(.p1(a_coin_in_n),.p2(ic46_6),.p3(1'bz),.p4(ic52_10),.p5(ic52_9),
         .p9(ic52_8),.p10(ic52_9),.p11(1'bz),.p12(ic52_10),.p13(1'b1),
         .p6(ic57_6),.p8(ic57_8));
+    // ------------------------------------------------------------ Pro board
+    // Sheet G of manual 420-0525 (PDF page 10), pro/docs/trace/
+    // BONUS_INPUTS_TRACE.md, "PLAYER ST". IC numbers are the Pro board's.
+    // IC31 (7408) 1, 2 -> 3 -> PLAYER ST (N): pin 1 = IC32 pin 6, the 7425
+    // window NOR (IC57 here: /COIN IN, HC5, HC6, /HC7); pin 2 = IC38 pin 11,
+    // QA of the second 393 half, HC4 (IC52 pin 11 here). Gates 4-6, 9-11 and
+    // 12-13 of Pro's IC31 are not modelled here (pins 9, 10 -> 8 is IC34
+    // above). The original board has no such gate: PLAYER ST reads low.
+    wire p31_3;
+    ref_7408 pro_ic31(.p1(ic57_6),.p2(ic52_11),.p4(1'b0),.p5(1'b0),.p9(1'b0),.p10(1'b0),
+        .p12(1'b0),.p13(1'b0),.p3(p31_3),.p6(),.p8(),.p11());
+    assign player_st = pro ? p31_3 : 1'b0;
     // IC56 (7400): 4,5 -> 6.
     ref_7400 ic56(.p1(1'b0),.p2(1'b0),.p4(ic51_4),.p5(ic57_6),.p9(1'b0),.p10(1'b0),
         .p12(1'b0),.p13(1'b0),.p3(),.p6(ic56_6),.p8(),.p11());

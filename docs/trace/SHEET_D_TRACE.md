@@ -66,11 +66,11 @@ B's R1 and R2 (IC62 pins 4 and 8).
     except in the GRAVEL flip-flop's zone, so PR-137's speckle covers the
     road;
   - AND: /GRAVEL is active only inside that zone, and the road is plain.
-  On 29 October the maintainer compared the simulated pictures with the real game: it
+  On 29 October Aldo compared the simulated pictures with the real game: it
   shows the AND picture. Correction 10 is withdrawn. The RTL and the
   reference keep a parameter (IC66_NAND, default 0 = AND) so that the other
   reading can still be simulated. The pictures are in
-  the working notes (not published).
+  `reports/sheet-d-2026-10-29/`.
 - **IC90 is a 7425 (both sections NOR), settled by the real game.** The
   drawing shows one section as an AND and the other as a NOR (see the
   review); the photo of the 97092-P board pointed to 7425. Read as drawn,
@@ -78,8 +78,8 @@ B's R1 and R2 (IC62 pins 4 and 8).
   M2V = 0xEC. With 7425: 0x1B and 0xEC. With 7421: 0xFF and 0xFB. In the
   simulated pictures the readings differ in the green verge (/GREEN BELT)
   beside the road: as drawn, left side only; 7425, both sides; 7421, right
-  side only (the working notes (not published)). On 29 October
-  the maintainer compared them with the real game, which has verges on both sides.
+  side only (`reports/sheet-d-2026-10-29/ic90-readings.png`). On 29 October
+  Aldo compared them with the real game, which has verges on both sides.
   The RTL and the reference keep the parameter (IC90_TYPE, default 1 =
   7425) so that the other readings can still be simulated.
 - **IC32**: the redraw's 74LS21 (AND) is wrong, as the review says. The
@@ -153,7 +153,7 @@ other nets are named by their driving pin.
 ## Review by Claude, 22 October 2026
 
 This trace was written by ChatGPT from the handover package and reviewed by
-Claude against the same image (manual 420-0358, PDF page 31, same
+Claude against the same image (`schematics/pages/page31-sheet-D.png`, same
 SHA-256). Every pin-to-pin link was first compared with stonedDiscord's KiCad
 redraw of board 96578 (github.com/stonedDiscord/MonacoGP, no licence, used
 only for comparison): 356 links agreed and 50 differed, and the bus labels

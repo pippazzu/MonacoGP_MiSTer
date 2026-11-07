@@ -7,11 +7,11 @@ image.
 
 | Excerpt | Contents |
 |---|---|
-| line counter | IC63, IC54, IC48/IC45/IC46, IC51 window latch |
-| pixel counter | IC63, IC52, IC34, IC57 window gates |
-| PROMs and enables | PR127..PR130, IC95, IC73, /EXPLO.ST |
-| mux and decoder | IC56, IC62, IC76, IC83, IC61, IC44, IC68, connectors |
-| select state | IC38, IC80, IC72, IC62, IC66, IC119, IC51, IC19, bottom-edge outputs |
+| [line counter](../source-excerpts/sheet-g-line-counter.png) | IC63, IC54, IC48/IC45/IC46, IC51 window latch |
+| [pixel counter](../source-excerpts/sheet-g-pixel-counter.png) | IC63, IC52, IC34, IC57 window gates |
+| [PROMs and enables](../source-excerpts/sheet-g-proms-enables.png) | PR127..PR130, IC95, IC73, /EXPLO.ST |
+| [mux and decoder](../source-excerpts/sheet-g-mux-decoder.png) | IC56, IC62, IC76, IC83, IC61, IC44, IC68, connectors |
+| [select state](../source-excerpts/sheet-g-select-state.png) | IC38, IC80, IC72, IC62, IC66, IC119, IC51, IC19, bottom-edge outputs |
 
 How the drawing was read:
 
@@ -27,7 +27,7 @@ How the drawing was read:
   - All 31 connection claims were confirmed.
   - Four were confirmed with a labelling detail. Those details are recorded in the notes and under "Unresolved".
   - The reviewers found IC19 and IC68, which an earlier draft of this trace had listed as unknown sources.
-- The page extraction, the 31 claims, the crop boxes, the probe points and the net-extraction tools are in work/.
+- The page extraction, the 31 claims, the crop boxes, the probe points and the net-extraction tools are in [work/](work/README.md).
 
 ## Signal path in brief
 
@@ -197,7 +197,7 @@ The reference shares the transcription with the RTL. Agreement can expose implem
 
 ### Results, 16 October 2026
 
-All checks pass with the verified original PROM set.
+All checks pass with the verified original PROM set. The logs are in [reports/sheet-g-2026-10-16](../../reports/sheet-g-2026-10-16/README.md).
 
 - **RTL against the reference:** 5,898,816 settled pixels over 49 frames. The sequence is normal, slide, normal, accident, explosion, then the override cases. The monostables switch at 5 edges, each within 2 pixels of the reference, and 4 pixels are masked at those edges.
 - **Window:** x = 164..195, y = 104..135 in every frame.
@@ -211,7 +211,7 @@ All checks pass with the verified original PROM set.
   - Vs/4 changes 74 PR127 pixels, none of them body pixels.
   - The accident images turn by +44.8°, +50.3°, +38.6° and +46.3° per step.
   - The PR128 images are yawed −11.6° and +12.6°.
-- The frame sheet shows the car region of every dumped frame.
+- The [frame sheet](../../reports/sheet-g-2026-10-16/player-frames.png) shows the car region of every dumped frame.
 
 ## Unresolved
 
@@ -229,7 +229,7 @@ All checks pass with the verified original PROM set.
    - QD high with /ACC1 high: PR127 + PR128.
    - QD or IC119 Q high with /ACC1 low: PR128 + PR129 or PR130. (Corrected 30 October: an earlier version of this note listed QD only.) IC119 is not cleared by /ACC1, so an accident within 0.1336 s of the car body meeting /GRAVEL or /SLIDE enables the slide and the spin images together.
    - Neither case is reached by the four test states. The override segment of `tb_player.v` does exercise it.
-   - Seen on a MiSTer (30 October, first build with sheets M and C): one frame of a car hitting another beside the road shows the car without most of its black outline. With both PROMs ANDed the outline (code 3) keeps 16 to 73 of the 111 to 161 pixels it has in one image, and body and tyre pixels drop too. The maintainer confirmed the same on a real board (30 October), so the wired-AND model matches the board at least in this case.
+   - Seen on Aldo's MiSTer (30 October, first build with sheets M and C): one frame of a car hitting another beside the road shows the car without most of its black outline. With both PROMs ANDed the outline (code 3) keeps 16 to 73 of the 111 to 161 pixels it has in one image, and body and tyre pixels drop too. Aldo confirmed the same on a real board (30 October), so the wired-AND model matches the board at least in this case.
 7. **7 MHz phase.** It is assumed that sheet F's "7MHz" rises at the same edge that advances the sheet E counters. A half-period offset would move the car by half a pixel relative to H.
 8. **PL-H-ST and PL-V-ST** are generated on sheet F, which is not traced: their pulse width, their timing against the clock edges, and the C23/680 pF shaping. Only the fixed test positions are used.
 9. **Inputs from untraced sheets:**

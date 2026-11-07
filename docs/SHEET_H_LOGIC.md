@@ -136,7 +136,8 @@ same stimulus on the real sheet E raster.
   - `cars` (one-shot capacitors / 1000, 40 frames, pictures of frames 31–33);
   - `cars_full` (as drawn, 200 frames).
 
-Results, 29 October 2026:
+Results, 29 October 2026 (logs in
+[reports/sheet-h-2026-10-29](../reports/sheet-h-2026-10-29/README.md)):
 
 | Run | Pixels | Divider periods | Settled within |
 |---|---|---|---|

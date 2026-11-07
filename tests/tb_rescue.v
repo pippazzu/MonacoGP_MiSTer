@@ -18,9 +18,21 @@
 // The frame-counter lines step every line (Vs/64 falls four times a
 // frame); the sheet B decoder lines V-(1)..V-(5) and MH0..MH4 are random.
 // FAST = 1 divides IC18's capacitor by 1000.
+// Pro board +200 graphic (pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md): BONUS
+// CP from sheet N is driven in every run from its own random sequence, which
+// leaves the rest of the stimulus as it was. PRO selects the board in both
+// models; /+200 is compared with the other outputs. Checked from the trace
+// for every pixel, with the drawing of Aldo's reconstruction
+// (tests/fixtures/plus200_glyph.vh):
+//   /+200 low exactly when PRO, BONUS CP, V-(4) low, H4..H7 = 0 and the
+//   drawing's cell for (H0..H3, V0..V4) is lit.
+// BONUS CP must have been high on lit cells of the window (with PRO = 0:
+// where they would be lit). Here V-(4) is random, so the window is not at its
+// place on the raster; tests/tb_plus200.v draws it on the real raster.
 `timescale 1ns/1ps
 module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
-                   parameter [31:0] SEED = 32'h4d4f4e4d);
+                   parameter [31:0] SEED = 32'h4d4f4e4d, parameter integer PRO = 0);
+`include "plus200_glyph.vh"
     reg clk=0, rst=1;
     always #10.416666667 clk=~clk;                   // 48 MHz
     localparam integer N18 = FAST ? 143 : 143293;
@@ -51,18 +63,21 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
     reg [7:0] fc = 0;
     reg extend=0, game_n=1, coin_n=1, excp_n=1, s100c=0, cnc_n=1, ext500=0, zero_n=1, bap=1, other_n=1;
     reg acce_d=0, explo=0;
+    reg bonus_cp=0;                                  // sheet N (Pro)
+    wire pro = PRO != 0;
     wire vs4 = fc[1], vs16 = fc[3], vs32 = fc[4], vs64 = fc[5];
 
     // ---------------- RTL
     wire [20:0] d_out;
     wire [21:0] d_dbg;
-    wire busy;
+    wire busy, d_plus_n;
     jtmonacogp_rescue #(.IC18_PIXELS(N18)) dut(
         .clk(clk),.rst(rst),.pxl_cen(pcen),.h(h),.v(v),.hs(hs),.vdec_n(vd),.mh(mh),
         .vs4(vs4),.vs16(vs16),.vs32(vs32),.vs64(vs64),
         .extend(extend),.extend_n(~extend),.game_n(game_n),.coin_in_n(coin_n),.ex_signal_cp_n(excp_n),
         .s100c(s100c),.car_no_cont_n(cnc_n),.ext500(ext500),.ext500_n(~ext500),.zero_area_n(zero_n),
         .bridge_ap(bap),.other_car_n(other_n),.acce_d(acce_d),.explo_sel_d(explo),
+        .pro(pro),.bonus_cp(bonus_cp),.plus200_n(d_plus_n),
         .pr138_addr(a138),.pr139_addr(a139),.pr140_addr(a140),
         .pr138_q(q138),.pr139_q(q139),.pr140_q(q140),.pr141_q(q141),
         .rescue_bl_n(d_out[20]),.rescue_r_n(d_out[19]),.rescue_w_n(d_out[18]),.rescue_y_n(d_out[17]),
@@ -89,18 +104,19 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
     assign #5 {r_h, r_v, r_vd, r_mh, r_misc} = {s_h, s_v, s_vd, s_mh, s_misc};
     // r_misc: {hs_n, vs4, vs16, vs32, vs64, extend, extend_n, game_n, coin_n, excp_n,
     //          100c, cnc_n, ext500, ext500_n, zero_n, bap, other_n} and acce_d, explo below
-    reg s_acce=0, s_explo=0;
-    wire r_acce, r_explo;
-    assign #5 {r_acce, r_explo} = {s_acce, s_explo};
+    reg s_acce=0, s_explo=0, s_bcp=0;
+    wire r_acce, r_explo, r_bcp;
+    assign #5 {r_acce, r_explo, r_bcp} = {s_acce, s_explo, s_bcp};
     wire [20:0] r_out;
     wire [21:0] r_dbg;
+    wire r_plus_n;
     sheet_m_reference #(.IC18_PIXELS(N18)) reff(
         .f7(f7),.m_h(r_h),.m_v(r_v),.m_hs_n(r_misc[16]),.m_vd(r_vd),.m_mh(r_mh),
         .m_vs4(r_misc[15]),.m_vs16(r_misc[14]),.m_vs32(r_misc[13]),.m_vs64(r_misc[12]),
         .m_extend(r_misc[11]),.m_extend_n(r_misc[10]),.m_game_n(r_misc[9]),.m_coin_n(r_misc[8]),
         .m_excp_n(r_misc[7]),.m_100c(r_misc[6]),.m_cnc_n(r_misc[5]),.m_ext500(r_misc[4]),
         .m_ext500_n(r_misc[3]),.m_zero_n(r_misc[2]),.m_bap(r_misc[1]),.m_other_n(r_misc[0]),
-        .m_acce_d(r_acce),.m_explo(r_explo),
+        .m_acce_d(r_acce),.m_explo(r_explo),.m_pro(pro),.m_bonus_cp(r_bcp),.plus200_n(r_plus_n),
         .rescue_bl_n(r_out[20]),.rescue_r_n(r_out[19]),.rescue_w_n(r_out[18]),.rescue_y_n(r_out[17]),
         .rl_side_n(r_out[16]),.ext_car_cont(r_out[15]),.rescue_cp_n(r_out[14]),
         .sig_y_n(r_out[13]),.sig_bl_n(r_out[12]),.dummy_area_n(r_out[11]),.dummy_w_n(r_out[10]),
@@ -108,9 +124,9 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
         .bridge_w_n(r_out[6]),.bridge_dbu_n(r_out[5]),.bridge_y_n(r_out[4]),.bridge_r_n(r_out[3]),
         .bridge_bu_n(r_out[2]),.l2_side_n(r_out[1]),.r2_side_n(r_out[0]),.dbg(r_dbg));
 
-    wire [42:0] d_vec = {d_out, d_dbg};
-    wire [42:0] r_vec = {r_out, r_dbg};
-    reg [42:0] r_snap;
+    wire [43:0] d_vec = {d_plus_n, d_out, d_dbg};
+    wire [43:0] r_vec = {r_plus_n, r_out, r_dbg};
+    reg [43:0] r_snap;
 
     // ---------------- Checks and stimulus
     integer seed = SEED, pixels = 0, frames = 0, k, n, fp, sx, sy, hr, busy_max = 0, steps = 0;
@@ -121,13 +137,17 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
     reg [3:0] prev46 = 0;
     reg prev_go = 0, prev_o18 = 0, co_a = 1, co_b = 1, ex_a = 0, ex_b = 0;
     reg [20:0] prev_out = 21'h1fffff;
+    // +200: the inputs of the pixel just registered, {H, V, V-(4), BONUS CP}
+    reg [19:0] p2a = 0, p2b = 0;
+    reg ex200;
+    integer seed_b = SEED ^ 32'h2b323030, lit200 = 0, would200 = 0, low200 = 0;
     reg [23:0] pic [0:455][0:239];
     reg [8:0] cap_y = 0, out_y = 0, cap_hp = 0, out_hp = 0;
     reg cap_hb = 1, out_hb = 1, cap_vb = 1, out_vb = 1;
 
     task write_pic(input integer num);
         begin
-            fp = $fopen($sformatf("%0s/rescue-%0d.ppm", outdir, num), "w");
+            fp = $fopen($sformatf("%0s/rescue-%0s%0d.ppm", outdir, PRO ? "pro-" : "", num), "w");
             if (!fp) $fatal(1, "cannot open the picture file");
             // Upright, as the sheet B, D and H pictures: H down, V to the left,
             // each line drawn from hpos 424.
@@ -155,8 +175,9 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
             {s_h, s_v, s_vd, s_mh} <= {h, v, vd, mh};
             s_misc <= {~hs, vs4, vs16, vs32, vs64, extend, ~extend, game_n, coin_n, excp_n,
                        s100c, cnc_n, ext500, ~ext500, zero_n, bap, other_n};
-            {s_acce, s_explo} <= {acce_d, explo};
+            {s_acce, s_explo, s_bcp} <= {acce_d, explo, bonus_cp};
             {co_a, co_b, ex_a, ex_b} <= {coin_n, co_a, explo, ex_a};
+            {p2a, p2b} <= {h, v, vd[4], bonus_cp, p2a};
             {out_y, out_hp, out_hb, out_vb} <= {cap_y, cap_hp, cap_hb, cap_vb};
             {cap_y, cap_hp, cap_hb, cap_vb} <= {y, hp, hb, vb};
             // ---------------- rescue counter period, on the RTL's settled nets
@@ -185,6 +206,15 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
                 $fatal(1, "GAME OVER %b with IC46 at %0d and EXPLO. SEL. D %b", d_out[7], d_dbg[6:3], ex_b);
             n = !d_out[6] + !d_out[5] + !d_out[4] + !d_out[3] + !d_out[2];
             if (n > 1) $fatal(1, "two /BRIDGE outputs low: %b", d_out[6:2]);
+            // ---------------- +200 (p2b = {H, V, V-(4), BONUS CP})
+            ex200 = p2b[0] && !p2b[1] && p2b[18:15] == 4'd0 && glyph_cell(p2b[19:11], p2b[10:2]);
+            if (d_plus_n !== !(pro && ex200))
+                $fatal(1, "/+200 %b at pixel %0d: H %h V %h V-(4) %b BONUS CP %b drawing %b (PRO %0d)",
+                       d_plus_n, pixels, p2b[19:11], p2b[10:2], p2b[1], p2b[0],
+                       glyph_cell(p2b[19:11], p2b[10:2]), PRO);
+            if (ex200) would200 = would200 + 1;
+            if (!d_plus_n) lit200 = lit200 + 1;
+            if (p2b[0]) low200 = low200 + 1;
             // ---------------- coverage
             for (k = 0; k < 21; k = k + 1) if (d_out[k] != prev_out[k]) lit[k] = lit[k] + 1;
             prev_out = d_out;
@@ -198,7 +228,7 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
             prev_o18 = d_dbg[2];
             // Placeholder colours (sheet C mixes them)
             if (!out_vb && out_hp < 456 && out_y < 240) begin
-                pic[out_hp][out_y] = !d_out[17] ? 24'hffff00 : !d_out[18] ? 24'hffffff : !d_out[19] ? 24'hff2020 :
+                pic[out_hp][out_y] = !d_plus_n ? 24'hff0000 : !d_out[17] ? 24'hffff00 : !d_out[18] ? 24'hffffff : !d_out[19] ? 24'hff2020 :
                                      !d_out[20] ? 24'h2020ff :
                                      !d_out[10] ? 24'hffffff : !d_out[9] ? 24'hff4040 : !d_out[8] ? 24'h4040ff :
                                      !d_out[13] ? 24'hffd000 : !d_out[12] ? 24'h0060ff :
@@ -235,6 +265,8 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
             else if (!excp_n && ($random(seed) & 1023) == 0) excp_n <= 1;
             if (($random(seed) & 32'h7fffffff) % 60000 == 0) explo <= 1;
             else if (explo && ($random(seed) & 1023) == 0) explo <= 0;
+            // Sheet N stand-in: BONUS CP toggling, its own sequence
+            if (($random(seed_b) & 32'h7fffffff) % 30000 == 0) bonus_cp <= ~bonus_cp;
         end
     end
 
@@ -242,6 +274,7 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
         if (!$value$plusargs("ROM=%s",path) || !$value$plusargs("OUT=%s",outdir))
             $fatal(1,"missing ROM/OUT");
         $readmemh(path,image);
+        load_glyph;
         for (k = 0; k < 21; k = k + 1) lit[k] = 0;
         repeat(4) @(negedge clk);
         for (n=0;n<8800;n=n+1) begin
@@ -266,6 +299,9 @@ module tb_rescue #(parameter integer FAST = 1, FRAMES = 30, PIC0 = 20, NPIC = 3,
         $display("  reference hazards absorbed: IC57 CK %0d, IC35 upper CK %0d, IC35 lower CK %0d, IC46 UP %0d DOWN %0d",
                  reff.ic57.fck.hazards, reff.ic35u.fck.hazards, reff.ic35l.fck.hazards,
                  reff.ic46.fup.hazards, reff.ic46.fdn.hazards);
+        $display("  +200 (PRO=%0d): BONUS CP high %0d px; drawn cells in the window %0d px, /+200 low %0d px",
+                 PRO, low200, would200, lit200);
+        if (would200 == 0) $fatal(1, "coverage: BONUS CP never reached a lit cell of the +200 window");
         if (periods_454 == 0 || ups == 0 || downs == 0 || gameovers == 0 || os18 == 0 ||
             lit[17] == 0 || lit[13] == 0 || lit[10] == 0 || lit[6] == 0 || lit[1] == 0 || lit[16] == 0)
             $fatal(1, "coverage: a part of the circuit was not reached");

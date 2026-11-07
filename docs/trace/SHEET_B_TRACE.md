@@ -9,7 +9,7 @@ Source PNG SHA-256: `27d1783dd4b8d406728167fb474450ecd7994c96e4ce595dfe70144b183
 ## Review by Claude, 21 October 2026
 
 This trace was written by ChatGPT from the handover package and reviewed by
-Claude against the same image (manual 420-0358, PDF page 29, same
+Claude against the same image (`schematics/pages/page29-sheet-B.png`, same
 SHA-256). The review re-read every section at block level, the gate bodies,
 the tie-offs of IC111/IC83/IC84, the decoder outputs and their off-sheet
 labels, and two wire crossings on the IC63 output (no junction; ink thickness
@@ -38,11 +38,11 @@ lower output numeral reads 8 (U4); the separators read as `&`, "EX. & GAME
 OVER" and "COIN & START" (U5); the D-sheet input reads "TUNNEL & BRIDGE",
 written `TUNNEL& BR.DGE` (U9); the A-sheet input reads "INI RESET" (U10);
 the IC111 select caption reads `/(V-CA × V8)` under one overbar (U7,
-resolved with the maintainer's reading of "V8"; the middle mark is the `A` of `CA`).
+resolved with Aldo's reading of "V8"; the middle mark is the `A` of `CA`).
 Sheet E confirms it: IC110 there is a NAND, pin 1 V-CA and pin 2 V8 in,
 pin 3 out to connector FS, labelled `/V-CA×V8` with destination B (a second
 arrow with the same label goes to H). Evidence crops on
-manual 420-0358, PDF page 32, which is stored upside down, so view
+`schematics/pages/page32-sheet-E.png`, which is stored upside down, so view
 them turned 180°: `(4100,1100,4900,2900)` for IC110 and its output arrows,
 `(4300,2500,4900,3050)` for the circled B and H destination letters.
 

@@ -49,13 +49,17 @@ module tb_rank_keep;
         end
     end
     jtmonacogp_score u_score(.clk(clk),.rst(rst),.pxl_cen(cen7),.score_cp_n(scp_n),.coin_test_n(ct_n),
-        .ini_reset_n(ir_n),.digits(p),.s100(s100),.s100_d2(s2),.sp_cont(spc));
+        .ini_reset_n(ir_n),.pro(1'b0),.ram_reset_n(1'b1),
+        .digits(p),.s100(s100),.s100_d2(s2),.sp_cont(spc));
     jtmonacogp_rank #(.KEEP(1)) u_rank(.clk(clk),.rst(rst),.cen14(1'b1),.h5(h5),.v2(v2),
-        .vs16(vs16),.game(game),.coin_test_n(ct_n),.ini_reset_n(ir_n),.p(p),.d(d),.rank_ck(ck),
+        .vs16(vs16),.game(game),.coin_test_n(ct_n),.ini_reset_n(ir_n),.p(p),
+        .pro(1'b0),.game_end_n(1'b1),.ram_reset_n(1'b1),.tenk(),.trs(),
+        .d(d),.rank_ck(ck),
         .latch_cl(lcl),.n(n),.r(r),.flash(fl),.searching(srch),
         .ram_addr(ram_a),.ram_din(ram_di),.ram_we(ram_we),.ram_dout(ram[ram_a]),
         .ptr_din(ptr_di),.ptr_we(ptr_we),.ptr_dout(ptr));
-    jtmonacogp_ranks u_ranks(.clk(clk),.rst(rst),.d(d),.ck(ck),.latch_cl(lcl),.q(kq));
+    jtmonacogp_ranks u_ranks(.clk(clk),.rst(rst),.d(d),.ck(ck),.latch_cl(lcl),
+        .pro(1'b0),.p(p),.trs(1'b0),.q(kq),.srs(),.srs_flag());
 
     integer pix;
     task automatic pixels(input integer k);

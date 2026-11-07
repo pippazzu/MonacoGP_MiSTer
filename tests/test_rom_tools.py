@@ -30,6 +30,31 @@ class RomTests(unittest.TestCase):
         self.assertEqual([p.text for p in root.find("rom[@index='1']").findall("part")],["05 80"])
         self.assertEqual([r["offset"] for r in m["roms"]],list(range(0,8704,512))+[8704,8736,8768])
 
+    def test_pro_mra(self):
+        """#89: one RBF, two games. The Pro MRA differs from Monaco GP's only in
+        its name, setname (its own NVRAM and DIP files), year, the hidden
+        pro bit 15 in the switch default and the RAM RESET entry (bit 14)."""
+        m=json.loads(prep.MANIFEST.read_text())
+        mon=ET.fromstring(prep.mra_text(m))
+        pro=ET.fromstring(prep.mra_text(m,pro=True))
+        self.assertEqual((ROOT/"cores/monacogp/cfg/promonacogp.mra").read_text(),prep.mra_text(m,pro=True))
+        self.assertEqual((pro.find("name").text,pro.find("setname").text,pro.find("year").text),
+                         ("Pro Monaco GP","promonacogp","1980"))
+        self.assertNotEqual(pro.find("setname").text,mon.find("setname").text)
+        for tag in ("rbf","rotation","nvram"):
+            self.assertEqual(ET.tostring(pro.find(tag)),ET.tostring(mon.find(tag)))
+        self.assertEqual(ET.tostring(pro.find("rom[@index='0']")),ET.tostring(mon.find("rom[@index='0']")))
+        self.assertEqual(ET.tostring(pro.find("rom[@index='1']")),ET.tostring(mon.find("rom[@index='1']")))
+        # Monaco GP keeps pro = 0: bit 15 clear and no entry for bits 14/15
+        sw_m,sw_p=mon.find("switches"),pro.find("switches")
+        self.assertEqual(sw_m.attrib["default"],"00,00")
+        self.assertEqual(sw_p.attrib["default"],"00,80")      # bit 15 = pro, bit 14 (RAM reset) Off
+        bits_m=[d.attrib["bits"] for d in sw_m.findall("dip")]
+        bits_p=[d.attrib["bits"] for d in sw_p.findall("dip")]
+        self.assertEqual(bits_m,["0","8","9"])
+        self.assertEqual(bits_p,["0","8","9","14"])            # bit 15 has no entry: not changeable
+        self.assertEqual(sw_p.findall("dip")[-1].attrib["ids"],"Off,On")
+
     def test_osd_name_and_version(self):
         import sys
         sys.path.insert(0,str(ROOT/"scripts"))

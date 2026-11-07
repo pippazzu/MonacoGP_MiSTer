@@ -17,6 +17,14 @@
 // pxl_cen must therefore be at least five host clocks apart. When a clear is
 // released on the same 7 MHz edge that clocks a counter, the clear wins.
 // TTL propagation delays and RC pulse shaping are not reproduced.
+//
+// Pro Monaco GP (manual 420-0525, sheet G, PDF page 10), selected by pro = 1:
+// pro/docs/trace/BONUS_INPUTS_TRACE.md, "PLAYER ST". The Pro board adds one
+// gate for sheet N, IC31 (1, 2 -> 3) = AND(IC32 pin 6, IC38 pin 11). Pro's
+// IC32 and IC38 are this sheet's IC57 and IC52 (same function, same inputs),
+// so on this model's nets it is AND(HWIN, HC4): high for HC = 0x90..0x9F
+// while /COIN IN is low, on every line the counter runs (no vertical term).
+// With pro = 0 the output is low: the original board has no PLAYER ST.
 module jtmonacogp_player #(
     // IC119 (R16 = 47k, C30 = 10 uF) and IC19 (R19 = 47k, C33 = 10 uF), values
     // as read from the scan; 74123 data sheet: tw = 0.28*R*C*(1+0.7/R)
@@ -45,6 +53,8 @@ module jtmonacogp_player #(
     input            vs4, vs8, vs16, vs32,
     // IC51 pin 3 (/S2 of the window latch) is not drawn
     input            ic51_3,
+    // Pro board; 0 for the original board
+    input            pro,           // 1: Pro Monaco GP board
     // PR127..PR130 = IC77, IC84, IC91, IC98 (7641). Address A8..A0.
     output     [8:0] pr127_addr, pr128_addr, pr129_addr, pr130_addr,
     input      [7:0] pr127_q, pr128_q, pr129_q, pr130_q,
@@ -60,6 +70,7 @@ module jtmonacogp_player #(
     output           acc1_st_n,     // IC51 pin 7 -> (F) /ACC1.ST
     output           score_st_n,    // IC19 pin 4 -> (F) /SCORE.ST
     output           ic66_3,        // also IC51 pin 11 (latch 3, not traced)
+    output           player_st,     // Pro IC31 pin 3 -> (N) PLAYER ST; low with pro = 0
     // Internal nets, for tests and the development view
     output     [7:0] hc, vc,        // IC52, IC54 outputs QA..QD (lower, upper)
     output           vwin,          // IC51 pin 4
@@ -99,6 +110,8 @@ module jtmonacogp_player #(
 
     // IC57 (7425, strobe not drawn) = NOR(/COIN IN, HC5, HC6, /HC7 [IC46 5->6]).
     assign hwin = ~(coin_in_n | hc[5] | hc[6] | ~hc[7]);
+    // Pro IC31 (1, 2 -> 3): pin 1 = IC32 pin 6 (HWIN), pin 2 = IC38 pin 11 (HC4).
+    assign player_st = pro & hwin & hc[4];
     // IC56 (4, 5 -> 6) NAND, then IC62 (9, 10 -> 8) OR with EXPLO.ST.
     assign strobe_n = ~(vwin & hwin) | explo_st;
 

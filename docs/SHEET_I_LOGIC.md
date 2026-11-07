@@ -79,7 +79,7 @@ above the new one. A new best score gets R = 0, and 14H's Q0 is not
 connected: no row flashes.
 
 The real panel flashes **1ST** for a new best score during the game-over
-screen (the maintainer's photo, 1 November 2026: 1ST dark in the flash phase, 2ND
+screen (Aldo's photo, 1 November 2026: 1ST dark in the flash phase, 2ND
 999x, 3RD..5TH 0000). That is the behaviour with DOWN the inverse of 12D's
 QD: each pass then starts at the new slot, the new score is the first
 memory match of its pass, and R = 1 + the number of stored scores above it.
@@ -156,12 +156,16 @@ counter, the timer from sheet A.
 
 `jtmonacogp_panel.v` (not original circuitry) draws the panel over the
 picture: 1ST..5TH, SCORE, OF (人中, players to date),
-RANK (位) and TIME, as red seven-segment digits with unlit segments dim.
-It keeps each row as sheet J's outputs show it during that row's scan, so
+RANK (位) and TIME, as seven-segment digits in a black box: lit segments
+in the game's full red (12'hf00, that of GAME OVER and +200), unlit
+segments black, so the panel adds no colour the game does not show. With
+pro = 1 the Pro board's SUPER RACER SCORE digits and its two lamps (YOUR
+SCORE 10000POINT, TODAY'S HIGH SCORE 10000PT.) follow the same rule: 12'hf00
+lit, black unlit. It keeps each row as sheet J's outputs show it during that row's scan, so
 the flashing row blinks as on the panel. The row captions are the panel's
 printing, not drawn by the board. It is shown only while button 3
 (Scoreboard, Y by default) is held, in play or between games, and at no other
-time (4 November). The development displays leave it off.
+time (Aldo, 4 November). The development displays leave it off.
 
 The sound board's HI SCORE tune is started by sheet A (`hiscore_n`, pad
 AF: MCLR falling with EXTEND set), not by sheet I.

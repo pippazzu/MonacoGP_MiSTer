@@ -28,6 +28,16 @@
 // R15/C25) are counted in pixels at each edge 3. The CR switch filters, RA1/
 // RA2/C12/C14/D1 on the tilt input and the 470 pF capacitors are not
 // reproduced. pxl_cen must be at least six host clocks apart.
+//
+// Pro Monaco GP (manual 420-0525, sheet A, PDF page 8), selected by pro = 1:
+// pro/docs/trace/SHEET_A_BONUS_TRACE.md. Two gates are added for the bonus
+// circuit of sheet N; with pro = 0 the new inputs are ignored and the module
+// is the original sheet A.
+//   - IC59 (7432, 2, 1 -> 3) ORs BONUS SOUND into EX. CP before its buffer
+//     (46, 1 -> 2) to pad A29: EX. CP = (V2 AND Vs/16 AND Q) OR BONUS SOUND.
+//   - IC35 (9, 10 -> 8, NAND) of /COIN IN and /BONUS CP, then an inverting
+//     buffer (13 -> 12) to pad A28, the sound board's copy of /COIN IN:
+//     /COIN IN AND /BONUS CP. The game logic keeps the plain /COIN IN.
 module jtmonacogp_coin #(
     // 74123 data sheet: tw = 0.28*R*C*(1+0.7/R), R in kohm, in periods of
     // 7.1525 MHz. Values as read from the scan.
@@ -36,7 +46,7 @@ module jtmonacogp_coin #(
     parameter integer HI_PIXELS   = 9553,     // IC38 pins 5-7, 9-12: R8 47k, C15 0.1 uF
     // 555 astable, Ra = VR1 + R5 3.3k, Rb = R4, C5 47 uF: high ln 3 (Ra+Rb) C
     // after reset, then ln 2 (Ra+Rb) C, low ln 2 Rb C. VR1 (a trimmer) and R4
-    // are not legible. A 59.94 fps video of a real game (30 October):
+    // are not legible. A 59.94 fps video of a real game (Aldo, 30 October):
     // 89 shows for 87.94 frames (the first high phase and a low one) and a
     // game takes about 93 s, so a later count takes 1.039 s; then
     // (Ra+Rb) C = 1.0550 s and Rb C = 0.4446 s (with 47 uF: R4 9.5k, VR1 9.7k).
@@ -66,6 +76,10 @@ module jtmonacogp_coin #(
     input            v2,                // V2 (E), pad C6
     input            vs16,              // Vs/16 (H)
     input            a30,               // pad A30 (S-100-D' from sheet I)
+    // Pro board (sheet N); ignored while pro = 0
+    input            pro,               // 1: Pro Monaco GP board
+    input            bonus_sound,       // BONUS SOUND (N) -> IC59 pin 1
+    input            bonus_cp_n,        // /BONUS CP (N) -> IC35 pin 10
     // Settled values for the previous pixel, registered at edge 3
     output reg       game,              // IC37 pin 9 -> pad A27 (I), sheet G 555
     output reg       game_n,            // IC37 pin 8 -> pad B6 (B), (F); pad AE (S)
@@ -76,7 +90,8 @@ module jtmonacogp_coin #(
     output reg       extend_n,          // IC50 pin 8 -> (G), pad B3 (C)
     output reg       ex_signal_n,       // IC49 pin 4 -> pad C1 (B)
     output reg       ex_signal_cp_n,    // IC55 pin 3 -> pad B2 (M)
-    output reg       ex_cp,             // IC85 pin 12 -> pad A29 (S)
+    output reg       ex_cp,             // IC85 pin 12 -> pad A29 (S); Pro: IC59 pin 3, buffer 46
+    output reg       snd_coin_in_n,     // pad A28 (S): /COIN IN through IC31; Pro: AND /BONUS CP
     output reg       car_cont_cl,       // IC55 pin 8 -> (H)
     output reg       pts8000,           // IC79 pin 6 -> (F)
     output reg       mute,              // IC31 pin 2 -> pad A26 (S)
@@ -94,6 +109,7 @@ module jtmonacogp_coin #(
 
     // Captured inputs
     reg i_coin, i_test, i_credit, i_2play, i_tilt_n, i_acce_st, i_game_over, i_v2, i_vs16, i_a30;
+    reg i_pro, i_bonus_sound, i_bonus_cp_n;
 
     // State
     reg        f37a, f37b, f33, f50a, f50b, bo20_r, s555, a555;
@@ -191,6 +207,7 @@ module jtmonacogp_coin #(
             cen_sr <= 0;
             {i_coin, i_test, i_credit, i_2play} <= 0;
             {i_tilt_n, i_acce_st, i_game_over, i_v2, i_vs16, i_a30} <= 6'b100001;
+            {i_pro, i_bonus_sound, i_bonus_cp_n} <= 3'b001;
             {f37a, f37b, f33, f50a, f50b, s555} <= 0;
             a555 <= 1;
             bo20_r <= 0;
@@ -202,6 +219,7 @@ module jtmonacogp_coin #(
             {ct_l, acce_l, sw1_l, cpd21_l, bo21_l, excp_l, a30_l, tilt_l, mclr_l, ext_l} <= 10'b1010011100;
             game <= 0; game_n <= 1; coin_in <= 0; coin_in_n <= 1; coin_test_n <= 1;
             extend <= 0; extend_n <= 1; ex_signal_n <= 1; ex_signal_cp_n <= 1; ex_cp <= 0;
+            snd_coin_in_n <= 1;
             car_cont_cl <= 0; pts8000 <= 0; mute <= POWERUP_TILT != 0; hiscore_n <= 1;
             ini_reset_n <= POWERUP_TILT == 0; t1 <= 0; t2 <= 0; coin_meter <= 0; credit_lamp <= 0;
             dbg <= 0;
@@ -218,7 +236,10 @@ module jtmonacogp_coin #(
                 extend_n <= q50b_n;
                 ex_signal_n <= ~q49;
                 ex_signal_cp_n <= excp_n;
-                ex_cp <= i_v2 & i_vs16 & q49;          // IC85 (13, 1, 2 -> 12)
+                // IC85 (13, 1, 2 -> 12); Pro: the same AND (IC53), then IC59 (2, 1 -> 3)
+                ex_cp <= (i_v2 & i_vs16 & q49) | (i_pro & i_bonus_sound);
+                // IC31 (11 -> 10); Pro: IC35 (9, 10 -> 8) and the buffer (13 -> 12)
+                snd_coin_in_n <= ~q37a & (~i_pro | i_bonus_cp_n);
                 car_cont_cl <= cc_cl;
                 pts8000 <= q79[3];
                 mute <= tilt_q;
@@ -254,6 +275,7 @@ module jtmonacogp_coin #(
                 {i_coin, i_test, i_credit, i_2play} <= {coin_sw, test_sw, credit_sw, two_play};
                 {i_tilt_n, i_acce_st, i_game_over, i_v2, i_vs16, i_a30} <=
                     {tilt_n, acce_st, game_over, v2, vs16, a30};
+                {i_pro, i_bonus_sound, i_bonus_cp_n} <= {pro, bonus_sound, bonus_cp_n};
             end else begin
                 // One settling step
                 {ct_l, acce_l, sw1_l, cpd21_l, bo21_l, excp_l, a30_l, tilt_l, mclr_l, ext_l} <= nets;

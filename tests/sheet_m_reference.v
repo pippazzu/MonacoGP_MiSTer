@@ -219,6 +219,41 @@ module rm_74123 #(parameter integer PIXELS = 1)(input a, b, clr_n, f7, output re
         if (left == 0) q <= #(`RM_T) 0;
     end
 endmodule
+// Pro board parts (pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md, datasheets as
+// listed there).
+// One 7425 section with its strobe G open (reads high): Y = NOR(A, B, C, D).
+module rm_nor4(input a, b, c, d, output y);
+    assign #(`RM_G) y = ~(`TTL(a)|`TTL(b)|`TTL(c)|`TTL(d));
+endmodule
+// 74151 8-to-1: D0..D7 pins 4, 3, 2, 1, 15, 14, 13, 12; A, B, C 11, 10, 9;
+// /G 7; Y 5, W 6. /G high forces Y low and W high.
+module rm_74151(input p4,p3,p2,p1,p15,p14,p13,p12,p11,p10,p9,p7, output p5,p6);
+    wire [7:0] d = {`TTL(p12),`TTL(p13),`TTL(p14),`TTL(p15),`TTL(p1),`TTL(p2),`TTL(p3),`TTL(p4)};
+    wire [2:0] s = {`TTL(p9),`TTL(p10),`TTL(p11)};
+    assign #(`RM_G) p5 = !`TTL(p7) && d[s];
+    assign #(`RM_G) p6 = !(!`TTL(p7) && d[s]);
+endmodule
+// 6331 (MMI 53/6331-1) 32 x 8 PROM, open collector: A0..A4 pins 10..14, /E1
+// pin 15, O1..O8 pins 1..7, 9. A stored 1 leaves the output off (floating,
+// read high by a TTL input), a 0 pulls it low; disabled, all are off. One
+// layer, as rm_prom. Contents: PR-54 has no known dump; these are Aldo's
+// RECONSTRUCTION bytes (pro/reconstruction/plus200-glyph.txt, address 0..31,
+// O1 = bit 0), written here from that file.
+module rm_6331(input p10,p11,p12,p13,p14,p15, output p1,p2,p3,p4,p5,p6,p7,p9);
+    localparam [255:0] PR54 = {
+        8'h00, 8'h00, 8'h10, 8'h10, 8'h7c, 8'h7c, 8'h10, 8'h10,    // 31..24
+        8'h00, 8'h00, 8'h66, 8'h66, 8'h52, 8'h52, 8'h4e, 8'h4e,    // 23..16
+        8'h00, 8'h00, 8'h7e, 8'h7e, 8'h42, 8'h42, 8'h7e, 8'h7e,    // 15..8
+        8'h00, 8'h00, 8'h7e, 8'h7e, 8'h42, 8'h42, 8'h7e, 8'h7e};   // 7..0
+    wire [4:0] a = {`TTL(p14),`TTL(p13),`TTL(p12),`TTL(p11),`TTL(p10)};
+    wire [7:0] w = `TTL(p15) ? 8'hff : PR54[a*8 +: 8];
+    wire [7:0] o;
+    genvar k;
+    generate for (k = 0; k < 8; k = k + 1) begin: g
+        assign #(`RM_W + `RM_L) o[k] = w[k] ? 1'bz : 1'b0;
+    end endgenerate
+    assign {p9,p7,p6,p5,p4,p3,p2,p1} = o;
+endmodule
 // 512 x 8 PROM (µPB425) with /CE1, /CE2 (20, 21) and CE3, CE4 (18, 19); the
 // outputs float while disabled. A one-layer element: the data follow 3.02 ns
 // after the address. OFFSET is the part's place in the +ROM image.
@@ -255,10 +290,13 @@ module sheet_m_reference #(
     input        m_extend, m_extend_n, m_game_n, m_coin_n, m_excp_n,
     input        m_100c, m_cnc_n, m_ext500, m_ext500_n, m_zero_n, m_bap, m_other_n,
     input        m_acce_d, m_explo,
+    // Pro board: 1 adds PR-54 and its gates; BONUS CP from sheet N
+    input        m_pro, m_bonus_cp,
     // Outputs, as the RTL's
     output       rescue_bl_n, rescue_r_n, rescue_w_n, rescue_y_n, rl_side_n, ext_car_cont, rescue_cp_n,
     output       sig_y_n, sig_bl_n, dummy_area_n, dummy_w_n, dummy_r_n, dummy_bl_n, game_over,
     output       bridge_w_n, bridge_dbu_n, bridge_y_n, bridge_r_n, bridge_bu_n, l2_side_n, r2_side_n,
+    output       plus200_n,          // Pro: IC129 pin 6; high on the original board
     output [21:0] dbg
 );
     wire vcc = 1'b1, gnd = 1'b0, nc = 1'bz;
@@ -401,6 +439,24 @@ module sheet_m_reference #(
     rm_and2 ic15b(.a(m_ext500),.b(n11_4),.y(n15_8));                    // pins 9, 10 -> 8
     rm_nand2 ic16a(.a(n15_8),.b(n52_11),.y(l2_side_n));                 // pins 2, 1 -> 3
     rm_nand2 ic16d(.a(n15_8),.b(v7_n),.y(r2_side_n));                   // pins 13, 12 -> 11
+
+    // ------------------------------------------------------------ +200 (Pro board)
+    // Pro sheet M (manual 420-0525, PDF page 17), wired by IC and pin number
+    // from pro/docs/trace/SHEET_M_C_PLUS200_TRACE.md. The parts exist only
+    // with m_pro = 1; the original board has no /+200 line (read high).
+    wire h7 = m_h[7];
+    wire n128_8, n79_12, n124_8, n129_5, n129_6;
+    wire [8:1] o130;                                                    // O1..O8, pins 1..7, 9
+    rm_nor4 pro_ic128(.a(h4),.b(h5),.c(h6),.d(h7),.y(n128_8));         // pins 13, 9, 10, 12 -> 8
+    rm_inv pro_ic79(.a(m_vd[4]),.y(n79_12));                           // pins 13 -> 12 (V-(4), sheet B)
+    rm_nand3 pro_ic124(.a(n79_12),.b(m_bonus_cp),.c(n128_8),.y(n124_8)); // pins 11, 10, 9 -> 8
+    rm_6331 pro_ic130(.p10(v0),.p11(v1),.p12(v2),.p13(v3),.p14(v4),.p15(gnd),       // PR-54
+        .p1(o130[1]),.p2(o130[2]),.p3(o130[3]),.p4(o130[4]),.p5(o130[5]),.p6(o130[6]),
+        .p7(o130[7]),.p9(o130[8]));
+    rm_74151 pro_ic129(.p4(o130[1]),.p3(o130[2]),.p2(o130[3]),.p1(o130[4]),
+        .p15(o130[5]),.p14(o130[6]),.p13(o130[7]),.p12(o130[8]),
+        .p11(h1),.p10(h2),.p9(h3),.p7(n124_8),.p5(n129_5),.p6(n129_6));
+    assign plus200_n = m_pro ? n129_6 : vcc;
 
     // Internal state, in the RTL's order
     assign dbg = {n36_11, n36_12, n36_13, n36_14, n37_11, n37_12, n37_13, n37_14, n57_5, n35_5, n35_9,

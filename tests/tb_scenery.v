@@ -26,9 +26,20 @@
 //   changed every line), so that IC40 turns every few dozen lines and IC49
 //   runs through its count within a frame or two.
 // The stimulus stands in for sheets A, C and I; it is not gameplay.
+// PRO = 1: the Pro board (pro/docs/SHEETS_B_C_D_PRO_LOGIC.md). /DISPLAY is
+// low except in one frame of ten, with /D-GAME low while it is low and the
+// /COIN IN pattern above while it is high (as sheet B's IC70 gives it). The
+// Pro outputs (D-TIME, SLOW, BELT, SLIP, 100-C) and Pro IC41 are compared too.
+// Further directed checks: the four flip-flops stay clear while /D-GAME is
+// high (in place of /COIN IN); while /DISPLAY is low the decoder sees
+// {NOT(1QC XOR 1QD), 2QC, 2QB, 2QA} (/CAR NO CONT low for code 5 only),
+// D-TIME is 2QD and the first counter steps once per fall of IC40's lower
+// half; SLOW is high exactly while one of the four is set; EXT. 500 is clear
+// while the decoder sees 6. With PRO = 0 the stimulus is the one it was.
 `timescale 1ns/1ps
 module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
-                    IC90_TYPE = 1, IC66_NAND = 0, parameter [31:0] SEED = 32'h4d4f4e44);
+                    IC90_TYPE = 1, IC66_NAND = 0, parameter [31:0] SEED = 32'h4d4f4e44,
+                    parameter integer PRO = 0);
     reg clk=0, rst=1;
     always #10.416666667 clk=~clk;                   // 48 MHz
 
@@ -66,6 +77,8 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
         .h(h),.hs(hs),.v(v),.sp(sp),.vs2(1'b0),.vs4(1'b0),.vs16(1'b1),
         .coin_in_n(1'b1),.coin_in_e1_n(1'b1),.ex_signal_n(1'b1),.game_n(1'b1),
         .in_reset_n(in_reset_n),.tunnel_bridge_n(tunnel_bridge_n),
+        .pro(1'b0),.vs512(1'b0),.extend(1'b0),.extend_n(1'b1),.d_time(1'b0),.slow(1'b0),
+        .display_n(),.d_extend(),.d_extend_n(),.d_game_n(),
         .pr133_addr(),.pr133_q(8'd0),
         .mh(b_mh),.mhld_n(b_mhld_n),.m1v(m1v),.m2v(m2v),.m1vld_n(m1vld_n),.m2vld_n(m2vld_n),
         .vdec_n(vdec_n),.ex_gameover_n(),.coin_start_n(),
@@ -91,6 +104,9 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
     // ---------------- Other sheets
     reg extend=0, coin_in_n=1;
     reg [3:0] s100=4'hf;
+    // Pro board (sheet B): /DISPLAY, /D-GAME
+    wire pro = PRO != 0;
+    reg display_n=1, d_game_n=1;
 
     // ---------------- RTL
     wire d_side, d_tgg, d_tgbl, d_garea, d_gw, d_hst, d_pool, d_wall, d_gravel, d_slide, d_slip;
@@ -98,10 +114,14 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
     wire d_cnc, d_rside, d_lside, d_zero, busy;
     wire [3:0] d_house;
     wire [23:0] d_dbg;
+    wire d_dtime, d_slow, d_belt, d_slipo, d_c100;
+    wire [7:0] d_dbgp;
     jtmonacogp_scenery #(.IC90_TYPE(IC90_TYPE),.IC66_NAND(IC66_NAND)) dut(.clk(clk),.rst(rst),.pxl_cen(pcen),
         .hs(hs),.v7(v[7]),.v8(v[8]),.mh(mh),.mhl_n(mhl_n),.m1v(m1v),.m2v(m2v),
         .m1vl_n(m1vld_n),.m2vl_n(m2vld_n),.v4dec_n(vdec_n[4]),
         .extend(extend),.coin_in_n(coin_in_n),.s100(s100),
+        .pro(pro),.display_n(display_n),.d_game_n(d_game_n),
+        .d_time(d_dtime),.slow(d_slow),.belt(d_belt),.slip_eh(d_slipo),.c100(d_c100),.dbg_pro(d_dbgp),
         .pr134_addr(a134),.pr135_addr(a135),.pr136_addr(a136),.pr137_addr(a137),
         .pr134_q(q134),.pr135_q(q135),.pr136_q(q136),.pr137_q(q137),
         .side_line_n(d_side),.tree_grass_g_n(d_tgg),.tree_grass_bl_n(d_tgbl),.grass_area_n(d_garea),
@@ -119,17 +139,21 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
     reg r_hs_n=1, r_v7=0, r_v8_n=1, r_mhl_n=1, r_m1vl_n=1, r_m2vl_n=1, r_v4dec_n=1;
     reg [8:0] r_mh=0;
     reg [7:0] r_m1v=0, r_m2v=0;
-    reg r_extend=0, r_coin_in_n=1;
+    reg r_extend=0, r_coin_in_n=1, r_display_n=1, r_d_game_n=1;
     reg [3:0] r_s100=4'hf;
     wire r_side, r_tgg, r_tgbl, r_garea, r_gw, r_hst, r_pool, r_wall, r_gravel, r_slide, r_slip;
     wire r_green, r_yline, r_tap, r_bap, r_road, r_road_n, r_tunnel_n, r_tb_n, r_ext, r_ext_n;
     wire r_cnc, r_rside, r_lside, r_zero;
     wire [3:0] r_house;
     wire [23:0] r_dbg;
+    wire r_dtime, r_slow, r_belt, r_slipo, r_c100;
+    wire [7:0] r_dbgp;
     sheet_d_reference #(.IC90_TYPE(IC90_TYPE),.IC66_NAND(IC66_NAND)) reff(.d_hs_n(r_hs_n),.d_v7(r_v7),.d_v8_n(r_v8_n),
         .d_mh(r_mh),.d_mhl_n(r_mhl_n),.d_m1v(r_m1v),.d_m2v(r_m2v),.d_m1vl_n(r_m1vl_n),
         .d_m2vl_n(r_m2vl_n),.d_v4dec_n(r_v4dec_n),.d_extend(r_extend),.d_coin_in_n(r_coin_in_n),
         .d_s100(r_s100),
+        .d_pro(pro),.d_display_n(r_display_n),.d_d_game_n(r_d_game_n),
+        .d_time(r_dtime),.slow(r_slow),.belt(r_belt),.slip(r_slipo),.c100(r_c100),.dbg_pro(r_dbgp),
         .side_line_n(r_side),.tree_grass_g_n(r_tgg),.tree_grass_bl_n(r_tgbl),.grass_area_n(r_garea),
         .grass_w_n(r_gw),.house_st_n(r_hst),.house_n(r_house),.pool_n(r_pool),.wall_n(r_wall),
         .gravel_n(r_gravel),.slide_n(r_slide),.slip_n(r_slip),.green_belt_n(r_green),
@@ -138,18 +162,27 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
         .car_no_cont_n(r_cnc),.r_side_n(r_rside),.l_side_n(r_lside),.zero_area_n(r_zero),
         .dbg(r_dbg));
 
-    wire [52:0] d_vec = {d_side, d_tgg, d_tgbl, d_garea, d_gw, d_hst, d_house, d_pool, d_wall,
+    wire [65:0] d_vec = {d_side, d_tgg, d_tgbl, d_garea, d_gw, d_hst, d_house, d_pool, d_wall,
                          d_gravel, d_slide, d_slip, d_green, d_yline, d_tap, d_bap, d_road, d_road_n,
-                         d_tunnel_n, d_tb_n, d_ext, d_ext_n, d_cnc, d_rside, d_lside, d_zero, d_dbg};
-    wire [52:0] r_vec = {r_side, r_tgg, r_tgbl, r_garea, r_gw, r_hst, r_house, r_pool, r_wall,
+                         d_tunnel_n, d_tb_n, d_ext, d_ext_n, d_cnc, d_rside, d_lside, d_zero, d_dbg,
+                         d_dtime, d_slow, d_belt, d_slipo, d_c100, d_dbgp};
+    wire [65:0] r_vec = {r_side, r_tgg, r_tgbl, r_garea, r_gw, r_hst, r_house, r_pool, r_wall,
                          r_gravel, r_slide, r_slip, r_green, r_yline, r_tap, r_bap, r_road, r_road_n,
-                         r_tunnel_n, r_tb_n, r_ext, r_ext_n, r_cnc, r_rside, r_lside, r_zero, r_dbg};
-    reg [52:0] r_snap;
+                         r_tunnel_n, r_tb_n, r_ext, r_ext_n, r_cnc, r_rside, r_lside, r_zero, r_dbg,
+                         r_dtime, r_slow, r_belt, r_slipo, r_c100, r_dbgp};
+    reg [65:0] r_snap;
     // The pixel the RTL captures, and the one its registered outputs describe
     reg [8:0] cap_x=0, cap_y=0, out_x=0, out_y=0;
     reg cap_blank=1, out_blank=1;
     reg cap_m1vl_n=1, cap_m2vl_n=1, cap_v8=0, cap_mh4=0, cap_coin_n=1;
     reg out_m1vl_n=1, out_m2vl_n=1, out_v8=0, out_mh4=0, out_coin_n=1;
+    reg cap_disp_n=1, out_disp_n=1, outp_disp_n=1;
+    reg [3:0] cap_s100=4'hf, out_s100=4'hf;
+    // Pro coverage
+    integer p_codes[0:15], p_steps = 0, p_dtime_flips = 0, p_slow_px = 0, disp_frames = 0;
+    reg [7:0] dbgp_prev = 0;
+    reg dtime_prev = 0, f40b_prev = 0;
+    reg [3:0] p_code;
 
     // ---------------- Checks and stimulus
     integer pixels = 0, frames = 0, k, n, fp, sx, sy;
@@ -221,12 +254,18 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
                 {~hs, v[7], ~v[8], mhl_n, m1vld_n, m2vld_n, vdec_n[4]};
             r_mh <= mh; r_m1v <= m1v; r_m2v <= m2v;
             r_extend <= extend; r_coin_in_n <= coin_in_n; r_s100 <= s100;
+            r_display_n <= display_n; r_d_game_n <= d_game_n;
             {out_x, out_y, out_blank} <= {cap_x, cap_y, cap_blank};
             {cap_x, cap_y, cap_blank} <= {x, y, hb | vb};
             {out_m1vl_n, out_m2vl_n, out_v8, out_mh4, out_coin_n} <=
                 {cap_m1vl_n, cap_m2vl_n, cap_v8, cap_mh4, cap_coin_n};
+            // IC34 pin 9: /COIN IN, on Pro /D-GAME
             {cap_m1vl_n, cap_m2vl_n, cap_v8, cap_mh4, cap_coin_n} <=
-                {m1vld_n, m2vld_n, v[8], mh[4], coin_in_n};
+                {m1vld_n, m2vld_n, v[8], mh[4], pro ? d_game_n : coin_in_n};
+            out_disp_n <= cap_disp_n;
+            cap_disp_n <= display_n;
+            out_s100 <= cap_s100;
+            cap_s100 <= s100;
         end
         if (t_edge3 && running) begin
             pixels = pixels + 1;
@@ -244,7 +283,28 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
             if (!d_side && out_mh4) $fatal(1, "/SIDE LINE low with MH4 high");
             if (d_dbg[12:9] >= 4'd12) $fatal(1, "IC49 settled at %0d", d_dbg[12:9]);
             if (out_coin_n && |{d_dbg[23], d_dbg[19], d_dbg[18], d_dbg[17]})
-                $fatal(1, "a flip-flop of IC34's clear is set with /COIN IN high");
+                $fatal(1, "a flip-flop of IC34's clear is set with /COIN IN (Pro: /D-GAME) high");
+            // SLOW: NOT IC32, high while GRAVEL, SLIP, TUNNEL or IC25's lower half is set
+            if (d_slow !== |d_dbg[7:4]) $fatal(1, "SLOW %b with the four flip-flops at %b", d_slow, d_dbg[7:4]);
+            if (pro) begin
+                p_code = out_disp_n ? out_s100 : {~(d_dbgp[2] ^ d_dbgp[3]), d_dbgp[6:4]};
+                if (d_cnc !== (p_code != 4'd5) || d_c100 !== p_code[2])
+                    $fatal(1, "decoder input %h: /CAR NO CONT %b, 100-C %b (/DISPLAY %b)", p_code, d_cnc, d_c100, out_disp_n);
+                if (p_code == 4'd6 && (d_dbg[2] || d_ext)) $fatal(1, "EXT. 500 set while the decoder sees 6");
+                if (d_dtime !== d_dbgp[7]) $fatal(1, "D-TIME is not 2QD");
+                if (out_disp_n && d_dbgp != 8'd0) $fatal(1, "Pro IC41 not clear with /DISPLAY high: %h", d_dbgp);
+                if (!out_disp_n && !outp_disp_n &&
+                    ((d_dbgp[3:0] - dbgp_prev[3:0]) & 4'hf) !== {3'd0, f40b_prev && !d_dbg[22]})
+                    $fatal(1, "Pro IC41 first half %h -> %h, IC40 lower half %b -> %b",
+                           dbgp_prev[3:0], d_dbgp[3:0], f40b_prev, d_dbg[22]);
+                if (!out_disp_n) begin
+                    p_codes[p_code] = p_codes[p_code] + 1;
+                    if (d_dbgp[3:0] != dbgp_prev[3:0]) p_steps = p_steps + 1;
+                end
+                if (d_dtime != dtime_prev) p_dtime_flips = p_dtime_flips + 1;
+                if (d_slow) p_slow_px = p_slow_px + 1;
+                dbgp_prev = d_dbgp; dtime_prev = d_dtime; f40b_prev = d_dbg[22]; outp_disp_n = out_disp_n;
+            end
             if ((d_house != 4'hf && d_hst) || (d_house != 4'hf && d_house != 4'he && d_house != 4'hd &&
                 d_house != 4'hb && d_house != 4'h7))
                 $fatal(1, "/HOUSE outputs %b with /HOUSE ST %b", d_house, d_hst);
@@ -289,6 +349,14 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
                 if (($random(seed) & 3) == 0) extend <= ~extend;
                 // SP mostly 0 (fastest drift), sometimes another value
                 sp <= ($random(seed) & 7) == 0 ? $random(seed) : 4'd0;
+                if (pro) begin
+                    // Pro: /DISPLAY high in frames 2, 3 and 41 to 43 (a game),
+                    // with /D-GAME (= /GAME then) high in frames 3 and 43
+                    // (before and after the game); low otherwise
+                    display_n <= frames == 2 || frames == 3 || (frames >= 41 && frames <= 43);
+                    d_game_n <= frames == 3 || frames == 43;
+                    if (!display_n) disp_frames = disp_frames + 1;
+                end
             end
             // S-100 code changes at random pixels: a few per frame, or a burst
             if (($random(seed) & 32'h7fffffff) % (FAST ? 6000 : 20000) == 0) begin
@@ -305,6 +373,7 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
         $readmemh(path,image);
         for (k = 0; k < 11; k = k + 1) begin sets[k] = 0; clears[k] = 0; end
         for (k = 0; k < 22; k = k + 1) lit[k] = 0;
+        for (k = 0; k < 16; k = k + 1) p_codes[k] = 0;
         repeat(4) @(negedge clk);
         for (n=0;n<8800;n=n+1) begin
             @(negedge clk); wa=n; wd=image[n]; wr=1;
@@ -348,6 +417,16 @@ module tb_scenery #(parameter integer FAST = 0, FRAMES = 40, PIC0 = 20,
         if (FAST && ic49_full == 0) $fatal(1, "IC49 never reached 12");
         for (k = 0; k < 22; k = k + 1)
             if (lit[k] == 0) $display("  NOTE: output %0d of the coverage list was never active", k);
+        if (pro) begin
+            $display("  Pro: %0d frames with /DISPLAY low, %0d counter steps; D-TIME changed %0d times; SLOW high %0d pixels",
+                     disp_frames, p_steps, p_dtime_flips, p_slow_px);
+            $display("    decoder codes seen with /DISPLAY low: %0d %0d %0d %0d %0d %0d %0d %0d | %0d %0d %0d %0d %0d %0d %0d %0d",
+                     p_codes[0], p_codes[1], p_codes[2], p_codes[3], p_codes[4], p_codes[5], p_codes[6], p_codes[7],
+                     p_codes[8], p_codes[9], p_codes[10], p_codes[11], p_codes[12], p_codes[13], p_codes[14], p_codes[15]);
+            for (k = 0; k < 16; k = k + 1)
+                if (p_codes[k] == 0) $fatal(1, "coverage: the display mode never showed code %0d", k);
+            if (p_dtime_flips < 2 || p_slow_px == 0) $fatal(1, "coverage: D-TIME or SLOW never moved");
+        end
         $finish;
     end
 endmodule

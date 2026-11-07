@@ -8,7 +8,7 @@
 // The picture is turned clockwise for the cabinet's monitor, so the text is
 // drawn turned the other way: on the upright screen (240 wide, 360 tall) a
 // point (u, w) is the raster's x = w, y = 239 - u. Layout on the upright
-// screen (the maintainer's sketch), numbers only, about 32 pixels in from the edges
+// screen (Aldo's sketch), numbers only, about 32 pixels in from the edges
 // to stay clear of a CRT's overscan:
 //   top left     the time, 2 digits
 //   top right    the score, 4 digits

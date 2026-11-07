@@ -48,17 +48,34 @@ SWITCHES=[("Coin, play","0","1 coin 1 play,1 coin 2 plays"),
           ("Back sound in front mix","8","On,Off"),
           ("Louder explosion","9","Off,On")]
 
+# Pro Monaco GP (#89): the same RBF and PROM set; the MRA sets dipsw[15]
+# (pro, jtmonacogp_game.v) in its switch default and gives it no <dip>
+# entry, so the OSD cannot change it. JTFRAME does not pass core_mod to the
+# game, so a hidden DIP bit is the per-MRA setting. Its own setname keeps its
+# NVRAM (high scores) and DIP files apart from Monaco GP's. The Pro board's
+# RAM RESET switch (sheet I, SW.1) is dipsw[14], on this DIP page only.
+PRO_SWITCHES_NOTE=""" The boards' setting switches (OSD "DIP Switches"), 0 = the default:
+       bit 0, sheet A's changeover switch; bit 8, DIP SW. 2's contact that
+       sends the back sound (D-2, R424) into the front speaker's mix;
+       bit 9, DIP SW. 2 contact 2-15 (R423, a louder explosion);
+       bit 14, the Pro board's RAM RESET switch (sheet I, SW.1): On holds it
+       closed and clears the score memory (all 256 slots to 0000), then set
+       it back to Off; bit 15, set and not shown: the Pro board (pro in
+       jtmonacogp_game.v). jtmonacogp_game.v reads them from dipsw. """
+PRO_SWITCHES=SWITCHES+[("RAM reset (board switch)","14","Off,On")]
+
 MRA_ORDER=["pra125.ic59","pra126.ic65","pra131.ic71","pra127.ic77","pra128.ic84","pra129.ic91",
            "pra130.ic98","pra132.ic111","prm39.ic105","prm38.ic115","pra140.ic12","pra141.ic17",
            "pra138.ic30","pra139.ic51","pra133.ic64","pra136.ic99","pra135.ic106","pra134.ic113",
            "pra137.ic120","prm40.ic21"]
 
-def mra_text(manifest):
+def mra_text(manifest, pro=False):
+    """Monaco GP's MRA, or with pro the Pro Monaco GP one (same RBF and PROMs)."""
     root = ET.Element("misterromdescription")
     for key,value in [
-        ("name","Monaco GP"),
-        ("setname","monacogp"), ("rbf","MonacoGP"),
-        ("year","1979"), ("manufacturer","Sega"),
+        ("name","Pro Monaco GP" if pro else "Monaco GP"),
+        ("setname","promonacogp" if pro else "monacogp"), ("rbf","MonacoGP"),
+        ("year","1980" if pro else "1979"), ("manufacturer","Sega"),
         ("category","Racing"),
         ("rotation","vertical (cw)"),
     ]:
@@ -76,9 +93,9 @@ def mra_text(manifest):
     root.append(ET.Comment(CORE_MOD_NOTE))
     ET.SubElement(ET.SubElement(root,"rom",index="1"),"part").text=CORE_MOD
     # the boards' setting switches: MiSTer's "DIP Switches" page
-    root.append(ET.Comment(SWITCHES_NOTE))
-    sw=ET.SubElement(root,"switches",default="00,00",base="16",page_id="1",page_name="Switches")
-    for name,bits,ids in SWITCHES:
+    root.append(ET.Comment(PRO_SWITCHES_NOTE if pro else SWITCHES_NOTE))
+    sw=ET.SubElement(root,"switches",default="00,80" if pro else "00,00",base="16",page_id="1",page_name="Switches")
+    for name,bits,ids in (PRO_SWITCHES if pro else SWITCHES):
         ET.SubElement(sw,"dip",name=name,bits=bits,ids=ids)
     # the high scores' file, as JTFRAME_IOCTL_RD in macros.def
     ET.SubElement(root,"nvram",index="2",size="514")
@@ -90,6 +107,7 @@ def main():
     p.add_argument("archive",type=Path)
     p.add_argument("--out",type=Path,default=ROOT/"build"/"roms")
     p.add_argument("--write-mra",type=Path)
+    p.add_argument("--write-pro-mra",type=Path,help="also write the Pro Monaco GP MRA (#89)")
     args=p.parse_args()
     manifest=json.loads(MANIFEST.read_text())
     try:
@@ -105,6 +123,9 @@ def main():
     if args.write_mra:
         args.write_mra.parent.mkdir(parents=True,exist_ok=True)
         args.write_mra.write_text(mra_text(manifest))
+    if args.write_pro_mra:
+        args.write_pro_mra.parent.mkdir(parents=True,exist_ok=True)
+        args.write_pro_mra.write_text(mra_text(manifest,pro=True))
     print(f"PASS ROM archive: {len(report)} original PROMs, {len(stream)} bytes; sizes and CRC32 match")
 
 if __name__=="__main__":

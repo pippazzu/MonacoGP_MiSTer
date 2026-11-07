@@ -14,7 +14,7 @@
 // - before the coin sheet B shows its top text (GAME OVER: /COIN IN high)
 //   and its bottom one (DEPOSIT COIN, while /GAME is high); during the game,
 //   with no extend earned, the top text (EXTENDED PLAY) stays off, as on the
-//   real game (30 October). Pad E1 carries COIN IN for this;
+//   real game (Aldo, 30 October). Pad E1 carries COIN IN for this;
 // - while COIN is pressed /COIN & TEST is low and the timer holds 90; on
 //   release COIN IN is set; the pedal then sets GAME;
 // - the timer reads 89 within a few pixels of GAME rising: the 555 output
@@ -29,7 +29,7 @@
 // - at 00 GAME falls (no extended play: the S-100 code stays at none, so
 //   pad A30 has no falls). With an extend earned sheet A would set EXTEND
 //   instead and the game would go on until GAME OVER from sheet M (the
-//   lives running out, the maintainer), which the stand-ins hold low.
+//   lives running out, Aldo), which the stand-ins hold low.
 // - sheet C: every visible pixel of sheet B's top text is red (the red plane
 //   has the highest priority).
 // Reported, not checked: the colours of the bottom text and of the road

@@ -1,7 +1,7 @@
 # Sound sheet D-7/7 — other-car control and sound selection
 
 Source: Sega Monaco GP manual **420-0358**, PDF page **21**, board
-**96598-P**, manual 420-0358, PDF page 21 (upright,
+**96598-P**, `schematics/pages/page21-sound-D7.png` (upright,
 10160 × 6624 pixels, 600 dpi). Drawing stamp: AUG 30 1979.
 PNG SHA-256: `38e1750788015872c29eff4c9c00dd6720de756fdd68e243f6f2f45a0d09a2ff`.
 

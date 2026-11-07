@@ -30,16 +30,34 @@
 //   pin-wired netlist.
 // pxl_cen must be at least six host clocks apart. The three 470 pF capacitors
 // and RA1 (the pull-ups of the S-100 inputs) are not reproduced.
+//
+// Pro Monaco GP (manual 420-0525, sheet D, PDF page 15), selected by pro = 1:
+// pro/docs/SHEETS_B_C_D_PRO_LOGIC.md, from pro/docs/trace/SHEET_D_COMPARE.md.
+// - A 74157 (Pro IC34, S = /DISPLAY) in front of the 7442: the S-100 pads, or
+//   {NOT(1QC XOR 1QD), 2QC, 2QB, 2QA} of a 74393 (Pro IC41) whose first half
+//   counts the falls of IC40 lower half's Q and whose second half counts the
+//   falls of the first's QD; both halves clear while /DISPLAY is high. 2QD is
+//   D-TIME. /CAR NO CONT and 100-C come after the multiplexer.
+// - Decoder output 1 is unused; output 6 clears EXT. 500 (IC25 upper half);
+//   IC38's other half is clocked by NOT(the decoder's D input); IC45 clears
+//   only that half.
+// - /D-GAME takes /COIN IN's place on IC34 pin 9.
+// - EXTEND is D-EXTEND from sheet B.
+// - New outputs: SLOW = NOT IC32 (the four-flip-flop NOR), BELT (IC58 pin 11)
+//   and SLIP (IC31 SLIP Q, pad EH). /ACCI. AREA (pad E7) is not formed here:
+//   sheet F already ANDs ROAD, /RESCUE (Y) and /BRIDGE (W) (see the logic note).
+// The 470 pF capacitors added on Pro (C10-C13 and the scenery outputs) are
+// not reproduced. With pro = 0 every output is as before.
 module jtmonacogp_scenery #(
     // IC90's two sections are drawn as different gate types (13, 12, 10, 9 ->
     // 8 an AND, 2, 1, 4, 5 -> 6 a NOR), which one package cannot be; see the
-    // trace. The maintainer's comparison with the real game (29 October) shows the 7425
+    // trace. Aldo's comparison with the real game (29 October) shows the 7425
     // picture: green verges on both sides of the road. 1: both NOR (7425,
     // default); 0: as drawn; 2: both AND (7421).
     parameter integer IC90_TYPE = 1,
     // IC66 (3, 4, 5 -> 6): the scan is ambiguous (the 22 October review read
     // a NAND, the first transcription an AND; the output is labelled GRAVEL
-    // without a bar). The maintainer's comparison with the real game (29 October) shows
+    // without a bar). Aldo's comparison with the real game (29 October) shows
     // the AND picture. 0: AND (default), 1: NAND. See the trace.
     parameter integer IC66_NAND = 0
 )(
@@ -61,6 +79,16 @@ module jtmonacogp_scenery #(
     input            coin_in_n,          // /COIN IN, pad ED
     // Sheet I
     input      [3:0] s100,               // {S-100-D, -C, -B, -A}; S-100-C also leaves as 100-C (M)
+    // Pro board (sheet B); ignored while pro = 0. EXTEND above is D-EXTEND.
+    input            pro,                // 1: Pro Monaco GP board
+    input            display_n,          // /DISPLAY -> Pro IC34 pin 1, IC41 pins 2, 12
+    input            d_game_n,           // /D-GAME -> IC34 pin 9 in place of /COIN IN
+    output reg       d_time,             // D-TIME, Pro IC41 pin 8 -> (B)
+    output reg       slow,               // SLOW, NOT IC32 pin 6 -> (B)
+    output reg       belt,               // BELT, IC58 pin 11 -> (C)
+    output reg       slip_eh,            // SLIP, IC31 pin 5, pad EH -> (H)
+    output reg       c100,               // 100-C, the decoder's C input -> (M)
+    output reg [7:0] dbg_pro,            // Pro IC41 {second half, first half}, previous pixel
     // PR-134 = IC113, PR-135 = IC106, PR-136 = IC99, PR-137 = IC120, 512 x 8.
     // Address A8..A0, data O8..O1.
     output     [8:0] pr134_addr, pr135_addr, pr136_addr, pr137_addr,
@@ -104,22 +132,37 @@ module jtmonacogp_scenery #(
     reg  [7:0] i_m1v, i_m2v;
     reg        i_extend, i_coin_in_n;
     reg  [3:0] i_s100;
+    reg        i_display_n, i_d_game_n;
     wire hs_n = ~i_hs, v8_n = ~i_v8;
 
     // State: the stored outputs of the flip-flops, IC49 and IC68
     reg  f40a, f40b, f38a, f38b, f31a, f31b, f25a, f25b, f88a, f88b, f74;
     reg  [3:0] c49;
     reg  l68_r;
+    // Pro IC41 (74393, both halves) and its second half's clock at the previous step
+    reg  [3:0] p41a, p41b;
+    reg  p41qd_l;
     // Clock nets at the previous step
     reg  [11:0] ck_l;
 
+    // ---------------------------------------------------------------- Pro decoder input
+    // Pro IC41: CLR (pins 2, 12) = /DISPLAY, active high. With pro = 0 it
+    // stays clear and IC34 passes the pads.
+    wire disp = pro & ~i_display_n;
+    wire [3:0] q41a = disp ? p41a : 4'd0, q41b = disp ? p41b : 4'd0;
+    // IC113 (XOR, 9, 10 -> 8) of 1QC, 1QD; IC36 (1 -> 2) to IC34 pin 14
+    wire x41 = ~(q41a[2] ^ q41a[3]);
+    // IC34 (74157, S = /DISPLAY): B = pads, A = {IC36 pin 2, 2QC, 2QB, 2QA}
+    wire [3:0] code = disp ? {x41, q41b[2:0]} : i_s100;
+
     // ---------------------------------------------------------------- state network
-    // IC24 (7442): A, B, C, D = S-100-A..D (pins 15..12). Output n is low for
-    // code n; outputs 3, 8 and 9 are not drawn.
+    // IC24 (7442): A, B, C, D = S-100-A..D (pins 15..12); on Pro IC34's
+    // outputs. Output n is low for code n; outputs 3, 8 and 9 are not drawn
+    // (1 is not connected on Pro).
     wire [9:0] dec_n;
     genvar k;
     generate for (k = 0; k < 10; k = k + 1) begin: g24
-        assign dec_n[k] = i_s100 != k;
+        assign dec_n[k] = code != k;
     end endgenerate
     // IC47 (1, 2 -> 3) = AND(Vcc, /HS)
     wire hsb = hs_n;
@@ -129,7 +172,8 @@ module jtmonacogp_scenery #(
     wire [3:0] q49 = mr49 ? 4'd0 : c49;          // QA..QD = pins 11, 10, 9, 8
     // IC34 (8, 9 -> 10) = NOR(IC47 (12, 13 -> 11) = AND(QC, QD), /COIN IN):
     // the common clear of IC40's upper half, IC31 and IC25's lower half.
-    wire clr34_n = ~((q49[2] & q49[3]) | i_coin_in_n);
+    // Pro: /D-GAME in place of /COIN IN (Pro 63 pin 3, C16).
+    wire clr34_n = ~((q49[2] & q49[3]) | (pro ? i_d_game_n : i_coin_in_n));
     wire q40a = clr34_n & f40a;                  // GRAVEL, pins 5 (Q) and 6 (/Q)
     wire q31a = clr34_n & f31a;                  // SLIP, pins 5 and 6
     wire q31b = clr34_n & f31b;                  // TUNNEL, pins 9 and 8
@@ -142,7 +186,9 @@ module jtmonacogp_scenery #(
     // other half and of IC25's upper half.
     wire clr45_n = ~(~q40b & q38a);
     wire q38b = clr45_n & f38b;                  // pins 9 (Q), 8 not drawn
-    wire q25b = clr45_n & f25b;                  // EXT. 500, pins 9 (Q) and 8 (/Q)
+    // Pro: EXT. 500's /CLR is decoder output 6.
+    wire clr25b_n = pro ? dec_n[6] : clr45_n;
+    wire q25b = clr25b_n & f25b;                 // EXT. 500, pins 9 (Q) and 8 (/Q)
     // IC39 (12, 13 -> 11) = OR(QB, QC); IC48 and IC41 (74151) select by
     // {QD, IC39 pin 11, QA}, strobes grounded.
     wire [2:0] s49 = {q49[3], q49[1] | q49[2], q49[0]};
@@ -254,8 +300,10 @@ module jtmonacogp_scenery #(
     // Clock nets: IC40 upper (decoded 0), IC31 SLIP (2), IC31 TUNNEL (7), IC25
     // lower (5), IC25 upper (4), IC38 (IC47 (4, 5 -> 6)), IC40 lower (/MHL0),
     // IC38 POOL (IC40 pin 9), IC49 (IC40 pin 8), IC88 upper (MH5), IC88 lower
-    // (/R-SIDE), IC74 (/M1VL0).
-    wire [11:0] ck = {dec_n[0], dec_n[2], dec_n[7], dec_n[5], dec_n[4], dec_n[1] & dec_n[6],
+    // (/R-SIDE), IC74 (/M1VL0). On Pro, IC38's other half is clocked by
+    // IC36 (5 -> 6), NOT(IC34 pin 12), the decoder's D input.
+    wire [11:0] ck = {dec_n[0], dec_n[2], dec_n[7], dec_n[5], dec_n[4],
+                      pro ? ~code[3] : dec_n[1] & dec_n[6],
                       i_mhl_n, q40b, ~q40b, i_mh[5], rside_n, i_m1vl_n};
     wire [11:0] rise = ck & ~ck_l;
     // 7474: /CLR wins over the clock. 74393: counts falling clocks, MR high clears.
@@ -263,7 +311,7 @@ module jtmonacogp_scenery #(
     wire n31a = !clr34_n ? 1'b0 : rise[10] ? ~q38a    : f31a;  // D = IC38 pin 6
     wire n31b = !clr34_n ? 1'b0 : rise[9]  ? ~q31a    : f31b;  // D = IC31 pin 6
     wire n25a = !clr34_n ? 1'b0 : rise[8]  ? q25b     : f25a;  // D = IC25 pin 9
-    wire n25b = !clr45_n ? 1'b0 : rise[7]  ? i_extend : f25b;
+    wire n25b = !clr25b_n ? 1'b0 : rise[7]  ? i_extend : f25b;
     wire n38b = !clr45_n ? 1'b0 : rise[6]  ? ~q31b    : f38b;  // D = /TUNNEL
     wire n40b = rise[5] ? hsb  : f40b;
     wire n38a = rise[4] ? q38b : f38a;
@@ -271,9 +319,14 @@ module jtmonacogp_scenery #(
     wire n88a = !(i_mh[8] & i_mh[7]) ? 1'b0 : rise[2] ? i_mh[6] : f88a;
     wire n88b = !lside_n ? 1'b0 : rise[1] ? v8_n : f88b;
     wire n74  = !i_m2vl_n ? 1'b0 : rise[0] ? v8_n : f74;
+    // Pro IC41: the first half counts the falls of IC40 pin 9 (ck[4]), the
+    // second the falls of the first's QD (pin 6).
+    wire [3:0] n41a = !disp ? 4'd0 : (ck_l[4] && !ck[4]) ? p41a + 4'd1 : p41a;
+    wire [3:0] n41b = !disp ? 4'd0 : (p41qd_l && !q41a[3]) ? p41b + 4'd1 : p41b;
     assign busy = ck != ck_l || l68 != l68_r || n49 != c49 ||
                   {n40a, n31a, n31b, n25a, n25b, n38b, n40b, n38a, n88a, n88b, n74} !=
-                  {f40a, f31a, f31b, f25a, f25b, f38b, f40b, f38a, f88a, f88b, f74};
+                  {f40a, f31a, f31b, f25a, f25b, f38b, f40b, f38a, f88a, f88b, f74} ||
+                  n41a != p41a || n41b != p41b || p41qd_l != q41a[3];
 
     always @(posedge clk) begin
         if (rst) begin
@@ -284,6 +337,8 @@ module jtmonacogp_scenery #(
             // The board has no reset for these parts; this is one power-up state.
             {f40a, f40b, f38a, f38b, f31a, f31b, f25a, f25b, f88a, f88b, f74} <= 0;
             c49 <= 0; l68_r <= 0;
+            i_display_n <= 1; i_d_game_n <= 1; p41a <= 0; p41b <= 0; p41qd_l <= 0;
+            d_time <= 0; slow <= 0; belt <= 0; slip_eh <= 0; c100 <= 1; dbg_pro <= 0;
             ck_l <= 12'hfeb;
             side_line_n <= 1; tree_grass_g_n <= 1; tree_grass_bl_n <= 1; grass_area_n <= 1;
             grass_w_n <= 1; house_st_n <= 1; house_n <= 4'hf; pool_n <= 1; wall_n <= 1;
@@ -322,11 +377,19 @@ module jtmonacogp_scenery #(
                 l_side_n        <= lside_n;
                 zero_area_n     <= ic82_10;
                 dbg             <= state;
+                // Pro outputs
+                d_time          <= q41b[3];                         // IC41 pin 8
+                slow            <= q40a | q31a | q31b | q25a;       // NOT IC32 pin 6
+                belt            <= ic58_11;
+                slip_eh         <= q31a;
+                c100            <= code[2];                         // IC34 pin 9
+                dbg_pro         <= {q41b, q41a};
                 // Capture the next pixel
                 {i_hs, i_v7, i_v8, i_mhl_n, i_m1vl_n, i_m2vl_n, i_v4dec_n} <=
                     {hs, v7, v8, mhl_n, m1vl_n, m2vl_n, v4dec_n};
                 i_mh <= mh; i_m1v <= m1v; i_m2v <= m2v;
                 i_extend <= extend; i_coin_in_n <= coin_in_n; i_s100 <= s100;
+                i_display_n <= display_n; i_d_game_n <= d_game_n;
             end else begin
                 // One settling step
                 ck_l <= ck;
@@ -334,6 +397,7 @@ module jtmonacogp_scenery #(
                 {f40a, f31a, f31b, f25a, f25b, f38b, f40b, f38a, f88a, f88b, f74} <=
                     {n40a, n31a, n31b, n25a, n25b, n38b, n40b, n38a, n88a, n88b, n74};
                 c49 <= n49;
+                p41a <= n41a; p41b <= n41b; p41qd_l <= q41a[3];
             end
         end
     end

@@ -3,13 +3,13 @@
 Source: Sega **Monaco GP (420-0358)**, PDF page **28**, drawing **H**, board
 **96577-P**, sheet **D-4/4**, "IC BOARD ASS'Y, A" (Japanese caption:
 OTHER CAR の絵出しとコントロール, drawing and control of the other cars).
-Image: manual 420-0358, PDF page 28, **10176 × 6624** pixels,
+Image: `schematics/pages/page28-sheet-H.png`, **10176 × 6624** pixels,
 SHA-256 `d7e7528cc95c330d6adf8c1de0fa6d40d3cb55b641634e12f97a10949490c239`.
 
 **Status: complete pin-level trace, every row checked on the scan
 (26 October 2026).** This file replaces the partial transcription of 23
 October, which is kept unchanged in
-the working notes (not published). That file inventoried the
+[`work/SHEET_H_LOG.md`](work/SHEET_H_LOG.md). That file inventoried the
 position counters and the AREA logic without pin tables; they are traced
 here.
 
@@ -1160,11 +1160,11 @@ The tables follow the scan in every case below.
    N and H. A21 reads (I). A19 (/F-SOUND) has a letter that does not read.
    Box R(7900,850,8900,2550). None of this changes the wiring.
 2. **U2 — C35's value.** 100µ with a doubtful third digit (100µ or 10µ).
-   It sets the width of IC121's first half. The maintainer read the label on an
+   It sets the width of IC121's first half. Aldo read the label on an
    enlarged crop on 30 October; its third character looks like a 6. The
    drafter writes plain values with µ (C34 and C31 "220µ", not the code
    227), so "106" as a code for 10 µF does not fit, and 106 µF is not a
-   standard value. **Settled as 100 µF** (30 October), the value of
+   standard value. **Settled as 100 µF** (Aldo, 30 October), the value of
    C32 on IC121's other half.
 3. **U3 — the 470p on IC66.6** has no readable number.
 4. **U4 — pads C16, CT, C17, CU.** Their four Japanese labels and the
@@ -1180,7 +1180,7 @@ The tables follow the scan in every case below.
 
 ## Closed items from the old trace
 
-The numbers are those of the working notes (not published).
+The numbers are those of [`work/SHEET_H_LOG.md`](work/SHEET_H_LOG.md).
 
 - **1 (core untraced), 7, 8, 10, 14, 15, 19, 21:** the position counters,
   PR-132's address, IC118's select and /E, IC114's fourth section (3→4,
@@ -1204,6 +1204,6 @@ The numbers are those of the working notes (not published).
 
 - 23 October 2026: first partial transcription and redraw comparison
   (Andrea Bogazzi, PR #1; corrections by Codex, PR #2). Kept unchanged as
-  the working notes (not published).
+  [`work/SHEET_H_LOG.md`](work/SHEET_H_LOG.md).
 - 26 October 2026: Claude checked every pin of the sheet on the scan and
   wrote this consolidated trace.

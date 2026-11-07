@@ -10,8 +10,16 @@
 // mixer its 10. One line per step to OUT/snd_d67_steps.txt;
 // tests/sound/d67_verilog_check.py compares every line with the fixed-point
 // twin (tests/sound/d67_fixed.py) and the window features with SPICE.
+// With D67_R109 defined, the module is built with that R109 option (bank 1's
+// CONTROL bias, docs/sound/OTHER_CAR_COMPARE.md) and is compared with the
+// twin built the same way only.
 `timescale 1ns/1ps
 module tb_snd_d67;
+`ifdef D67_R109
+    localparam R109 = `D67_R109;
+`else
+    localparam R109 = 0;
+`endif
     reg clk = 0, rst = 1;
     always #10.416666667 clk = ~clk;
 
@@ -23,7 +31,7 @@ module tb_snd_d67;
     wire signed [35:0] v_con20, v_con19, v_con34, v_con33, v_cv1, v_cv2;
     wire signed [35:0] v_o1, v_o2, v_o3, v_con1, v_con2, v_o1b, v_snd1, v_snd2;
     wire        done, v_q59a, v_q59b, v_q58, v_c292, v_c2913;
-    jtmonacogp_snd_d67 uut(
+    jtmonacogp_snd_d67 #(.R109(R109)) uut(
         .clk(clk),.rst(rst),.tick(tick),.acc(acc),.fs_n(fs_n),
         .i_mf(i_mf),.i_mb(i_mb),.done(done),.v_front(v_front),.v_r6(v_r6),
         .v_feed(v_feed),.v_r14(v_r14),.v_r28(v_r28),.v_u1(v_u1),.v_u2(v_u2),
