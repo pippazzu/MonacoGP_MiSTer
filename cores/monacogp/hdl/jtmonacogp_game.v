@@ -760,6 +760,9 @@ module jtmonacogp_game #(
     // With JTFRAME_STEREO (the MiSTer build) both channels carry SOUND OUT;
     // OSD "Back speaker" (status bit 18) puts BACK SOUND OUT (pad R, the
     // cabinet's second speaker) on the right channel instead.
+    // OSD "Passing car R109" (status bits 20:19): car 1's CONTROL bias
+    // resistor on D-6, 0 = .33K as drawn (the default), 1 = 3.3K, 2 = 33K
+    // (an option, not a reading: docs/sound/OTHER_CAR_COMPARE.md).
     wire signed [15:0] snd_out, snd_back;
     wire snd_sample;
     generate if (SOUND != 0) begin : g_sound
@@ -770,7 +773,7 @@ module jtmonacogp_game #(
             // pad J (SLIP ZONE, D-1) takes /SLIPZONE by its name (sheet F
             // pad AX); the connector between them is not drawn
             .slip_n(f_slipzone_n),
-            .excp(a_ex_cp),.explo_loud(dipsw[9]),.back_mix(~dipsw[8]),
+            .excp(a_ex_cp),.explo_loud(dipsw[9]),.back_mix(~dipsw[8]),.r109(status[20:19]),
             // pad P takes /RESCUE CP (sheet M IC18)
             .rescue_cp_n(rescue_cp_n),
             // pad C takes /F-SOUND by its name (sheet H pad A19, through

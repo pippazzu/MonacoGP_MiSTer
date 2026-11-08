@@ -24,9 +24,9 @@ fixed-point twin (`d67_fixed.py`, `d67_verilog_check.py`).
   line within 6 %).
 - **The scan supports 330 Ω**, not 3.3K. The point before "33" is a pen dot,
   not a speck (measured below). So **nothing was changed**. R109 is now an
-  option: Verilog parameter `R109` (0 = .33K as drawn, the default;
-  1 = 3.3K; 2 = 33K, as Monza's redraw writes it), and the build macro
-  `MONACOGP_R109`. **The choice is Aldo's.**
+  option: the OSD's **Passing car R109** (0 = .33K as drawn, the default;
+  1 = 3.3K; 2 = 33K, as Monza's redraw writes it), the `r109` input of
+  the Verilog. **The choice is Aldo's.**
 - The remaining differences are pitch sweep, envelope and the frequency of the
   low line. No value on the schematic explains them, or they fall inside a
   tolerance the schematic itself prints. They are listed with what each would
@@ -141,8 +141,8 @@ models:
 
 | Where | How |
 |---|---|
-| Verilog | `jtmonacogp_snd_d67 #(.R109(n))` → `jtmonacogp_snd_d6bank #(.NO(1), .R109(n))`; constants `KCON1` (n = 0), `KCON1R1` (n = 1, 3.3K), `KCON1R2` (n = 2, 33K) in `jtmonacogp_snd_d67.vh` |
-| Build | define `MONACOGP_R109=1` (or 2) in `cores/monacogp/cfg/macros.def`; without it `jtmonacogp_sound.v` uses 0 |
+| Verilog | input `r109` of `jtmonacogp_sound` → `jtmonacogp_snd_d67` → `jtmonacogp_snd_d6bank #(.NO(1))`, taken at each step's start; constants `KCON1` (n = 0), `KCON1R1` (n = 1, 3.3K), `KCON1R2` (n = 2, 33K) in `jtmonacogp_snd_d67.vh` |
+| OSD | "Passing car R109" (`OJK` in `CORE_OSD`, `cores/monacogp/cfg/macros.def`): status bits 20:19, `.33K (drawn)` / `3.3K` / `33K`; it can be changed while playing (8 November 2026; until then a build macro, `MONACOGP_R109`) |
 | Models | `d67_model.D67(r109=n)`, `d67_fixed.D67Fixed(r109=n)`, `d67_model.R109_OPTIONS` |
 | Tests | `scripts/run_tests.py` runs the D-6/D-7 scenario a second time with option 1 under Verilator and compares it with the twin bit for bit (`d67_verilog_check.py check DIR 1`). The SPICE comparison and the step-flip budget (8) stay on the drawn value. The option's flips are reported. On 6 November there were 14 on IC32 b against the drawn run's 7, each 0.2–0.5 V near car 1's peak: the same kind, not the 4–5 V "quack". |
 
@@ -232,8 +232,9 @@ All agree with `SOUND_D6_TRACE.md` and `SOUND_D7_TRACE.md`.
 - Nothing in the default sound. R109 is still 330 Ω and every stored
   reference stays as it was. The generated `jtmonacogp_snd_d67.vh` only gains
   the two option constants.
-- New parameter `R109` on `jtmonacogp_snd_d67` and `jtmonacogp_snd_d6bank`,
-  and the macro `MONACOGP_R109` in `jtmonacogp_sound.v`. The options are in
+- New option R109 on `jtmonacogp_snd_d67` and `jtmonacogp_snd_d6bank`
+  (first a parameter and the build macro `MONACOGP_R109`; since 8 November
+  2026 the input `r109`, from the OSD's "Passing car R109"). The options are in
   `d67_model.py` and `d67_fixed.py`. One more Verilator run and check are in
   `scripts/run_tests.py`.
 

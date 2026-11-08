@@ -32,6 +32,7 @@ module jtmonacogp_sound(
     input                rescue_cp_n, // /RESCUE CP (sheet M IC18, pad P)
     input                explo_loud, // DIP SW. 2 contact 2-15 closed (R423)
     input                back_mix, // DIP SW. 2: the back sound's contact (R424) closed
+    input          [1:0] r109,     // OSD: car 1's R109 option (0 = .33K as drawn)
     input                hiscore_n,// HI SCORE (sheet A /HISCORE, pad AF), D-5 pad 3
     input                mute_in,  // MUTE (sheet A pad A26), D-5 IC35 pin 6
     // D-5's PROM (prm40.ic21)
@@ -115,18 +116,14 @@ module jtmonacogp_sound(
         .v_conl(),.v_mciu(),.v_mcil(),.v_mcou(),.v_mcol());
 
     // D-6/D-7: the other cars; S-ACCE as held for the step, pad C over the
-    // clocks before it. R109 (car 1's CONTROL bias) as drawn unless the
-    // build defines MONACOGP_R109 (1 = 3.3K, 2 = 33K): an option for Aldo,
-    // not a reading (docs/sound/OTHER_CAR_COMPARE.md).
-`ifdef MONACOGP_R109
-    localparam R109_OPT = `MONACOGP_R109;
-`else
-    localparam R109_OPT = 0;
-`endif
+    // clocks before it. R109 (car 1's CONTROL bias) comes from the OSD's
+    // "Passing car R109" (0 = .33K as drawn, 1 = 3.3K, 2 = 33K): an option
+    // for Aldo, not a reading (docs/sound/OTHER_CAR_COMPARE.md). The bank
+    // takes it at each step's start.
     wire signed [35:0] i_mf, i_mb;
     wire               o_done;
-    jtmonacogp_snd_d67 #(.R109(R109_OPT)) u_d67(
-        .clk(clk),.rst(rst),.tick(tick),.acc(acc_l),.fs_n(f_sound_n),
+    jtmonacogp_snd_d67 u_d67(
+        .clk(clk),.rst(rst),.r109(r109),.tick(tick),.acc(acc_l),.fs_n(f_sound_n),
         .i_mf(i_mf),.i_mb(i_mb),.done(o_done),.v_front(),.v_r6(),
         .v_feed(),.v_r14(),.v_r28(),.v_u1(),.v_u2(),.v_con20(),.v_con19(),.v_con34(),
         .v_con33(),.v_cv1(),.v_cv2(),.v_q59a(),.v_q59b(),.v_q58(),.v_c292(),.v_c2913(),
