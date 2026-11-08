@@ -24,9 +24,10 @@ fixed-point twin (`d67_fixed.py`, `d67_verilog_check.py`).
   line within 6 %).
 - **The scan supports 330 Ω**, not 3.3K. The point before "33" is a pen dot,
   not a speck (measured below). So **nothing was changed**. R109 is now an
-  option: the OSD's **Passing car R109** (0 = .33K as drawn, the default;
-  1 = 3.3K; 2 = 33K, as Monza's redraw writes it), the `r109` input of
-  the Verilog. **The choice is Aldo's.**
+  option: the OSD's **Passing car R109** (.33K as drawn, the default, or
+  3.3K), the `r109` input of the Verilog (which also takes 2 = 33K, as
+  Monza's redraw writes it; not in the OSD, since on MiSTer it silenced
+  car 1). **The choice is Aldo's.**
 - The remaining differences are pitch sweep, envelope and the frequency of the
   low line. No value on the schematic explains them, or they fall inside a
   tolerance the schematic itself prints. They are listed with what each would
@@ -142,7 +143,7 @@ models:
 | Where | How |
 |---|---|
 | Verilog | input `r109` of `jtmonacogp_sound` → `jtmonacogp_snd_d67` → `jtmonacogp_snd_d6bank #(.NO(1))`, taken at each step's start; constants `KCON1` (n = 0), `KCON1R1` (n = 1, 3.3K), `KCON1R2` (n = 2, 33K) in `jtmonacogp_snd_d67.vh` |
-| OSD | "Passing car R109" (`OJK` in `CORE_OSD`, `cores/monacogp/cfg/macros.def`): status bits 20:19, `.33K (drawn)` / `3.3K` / `33K`; it can be changed while playing (8 November 2026; until then a build macro, `MONACOGP_R109`) |
+| OSD | "Passing car R109" (`OJ` in `CORE_OSD`, `cores/monacogp/cfg/macros.def`): status bit 19, `.33K (drawn)` / `3.3K`; it can be changed while playing (8 November 2026; until then a build macro, `MONACOGP_R109`). 33K was offered first and dropped: on MiSTer it silenced car 1 |
 | Models | `d67_model.D67(r109=n)`, `d67_fixed.D67Fixed(r109=n)`, `d67_model.R109_OPTIONS` |
 | Tests | `scripts/run_tests.py` runs the D-6/D-7 scenario a second time with option 1 under Verilator and compares it with the twin bit for bit (`d67_verilog_check.py check DIR 1`). The SPICE comparison and the step-flip budget (8) stay on the drawn value. The option's flips are reported. On 6 November there were 14 on IC32 b against the drawn run's 7, each 0.2–0.5 V near car 1's peak: the same kind, not the 4–5 V "quack". |
 

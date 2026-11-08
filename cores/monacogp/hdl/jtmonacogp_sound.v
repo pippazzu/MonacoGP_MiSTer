@@ -117,7 +117,8 @@ module jtmonacogp_sound(
 
     // D-6/D-7: the other cars; S-ACCE as held for the step, pad C over the
     // clocks before it. R109 (car 1's CONTROL bias) comes from the OSD's
-    // "Passing car R109" (0 = .33K as drawn, 1 = 3.3K, 2 = 33K): an option
+    // "Passing car R109" (0 = .33K as drawn, 1 = 3.3K; 2 = 33K is accepted
+    // but not offered in the OSD): an option
     // for Aldo, not a reading (docs/sound/OTHER_CAR_COMPARE.md). The bank
     // takes it at each step's start.
     wire signed [35:0] i_mf, i_mb;

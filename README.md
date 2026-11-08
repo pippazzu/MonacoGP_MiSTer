@@ -20,7 +20,7 @@ PR-54 (+200) and PR-01/PR-02 (lamp decoding) are documented reconstructions, not
 
 - **Display:** the game uses external LEDs for scorekeeping and time: this core reproduces them via an overlay, along with a gear indicator. They can be hidden in the Display menu. Hold Y to display the full LED panel.
 - **Back speaker:** as featured in the sit-down cabinet, selecting "Right channel" plays back siren and passing car sound effects when behind the player.
-- **Passing car R109:** the resistor that sets how much passing car 1's sound is modulated (sound sheet D-6). The schematic reads .33K, the default; 3.3K gives the dense, buzzy sound heard in board recordings and the Saturn remake; 33K is the value in the Monza GP redraw. It can be changed while playing. See [the comparison](docs/sound/OTHER_CAR_COMPARE.md).
+- **Passing car R109:** the resistor that sets how much passing car 1's sound is modulated (sound sheet D-6). The schematic reads .33K, the default; 3.3K gives the dense, buzzy sound heard in board recordings and the Saturn remake. It can be changed while playing. See [the comparison](docs/sound/OTHER_CAR_COMPARE.md).
 - **Sensitivity:** recommended low for dial controls (preferred control method), high or highest for analog stick, high for digital controls.
 
 ## Controls
