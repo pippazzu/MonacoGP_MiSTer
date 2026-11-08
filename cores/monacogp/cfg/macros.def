@@ -42,8 +42,14 @@ JTFRAME_DIALEMU_LEFT=0
 # release build.
 # Back speaker (not original circuitry): Off, both channels carry SOUND OUT;
 # Right channel, BACK SOUND OUT (the cabinet's second speaker, D-2's pad R)
-# on the right channel. The board's switches are in the MRA's DIP menu.
-CORE_OSD=P2,Display;P2OD,Show Score & Time,On,Off;P2OE,Show Gear,On,Off;OI,Back speaker,Off,Right channel
+# on the right channel. Passing car R109 (status bit 19): car 1's CONTROL
+# bias resistor on sound sheet D-6, .33K as drawn (the default) or 3.3K; an
+# option, not a reading (docs/sound/OTHER_CAR_COMPARE.md). It replaces the
+# build-time MONACOGP_R109 and may be changed while playing. The 33K value
+# the sound modules still accept is not offered: on MiSTer it silenced car 1
+# (Aldo, 8 November 2026).
+# The board's switches are in the MRA's DIP menu.
+CORE_OSD=P2,Display;P2OD,Show Score & Time,On,Off;P2OE,Show Gear,On,Off;OI,Back speaker,Off,Right channel;OJ,Passing car R109,.33K (drawn),3.3K
 JTFRAME_STEREO
 # Simulations through JTFRAME's harness use the DIP menu's defaults
 JTFRAME_SIM_DIPS=0

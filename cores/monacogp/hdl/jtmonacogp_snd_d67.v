@@ -14,12 +14,14 @@
 // C15 2.2 uF, R409 82K into the D-4 mixer's 6 V virtual ground).
 // Outputs: i_mf, the R409 current times R414 (22K); i_mb, the current into
 // D-2's IC40 pin 6 times 51K (D-2 is not built: unused for now).
-// R109: bank 1's CONTROL bias option (jtmonacogp_snd_d6bank; 0 = .33K as
-// drawn, the default; 1 = 3.3K; 2 = 33K; docs/sound/OTHER_CAR_COMPARE.md).
+// r109: bank 1's CONTROL bias option (jtmonacogp_snd_d6bank; 0 = .33K as
+// drawn, the default; 1 = 3.3K; 2 = 33K; 3 as 0;
+// docs/sound/OTHER_CAR_COMPARE.md).
 // tests/sound/d67_fixed.py (D67Fixed) is the same arithmetic.
-module jtmonacogp_snd_d67 #(parameter R109 = 0) (
+module jtmonacogp_snd_d67 (
     input                    clk,
     input                    rst,
+    input              [1:0] r109,     // bank 1's R109 option
     input                    tick,
     input              [3:0] acc,      // S-ACCE D, C, B, A (pad high = 1)
     input                    fs_n,     // pad C, /F-SOUND (sheet H), sampled every clock
@@ -71,12 +73,12 @@ module jtmonacogp_snd_d67 #(parameter R109 = 0) (
         .q59a(q59a), .q59b(q59b), .done(d_ctl),
         .v_feed(v_feed), .v_r14(v_r14), .v_r28(v_r28), .v_u1(v_u1), .v_u2(v_u2),
         .v_c292(v_c292), .v_c2913(v_c2913), .v_q58(v_q58));
-    jtmonacogp_snd_d6bank #(.NO(1), .R109(R109)) u_bank1(
-        .clk(clk), .rst(rst), .start(go), .cv(p_cv1), .r6(r6_s),
+    jtmonacogp_snd_d6bank #(.NO(1)) u_bank1(
+        .clk(clk), .rst(rst), .r109(r109), .start(go), .cv(p_cv1), .r6(r6_s),
         .mco(m1), .svp(svp1), .done(d_b1),
         .v_o1(v_o1), .v_o2(v_o2), .v_o3(v_o3), .v_con(v_con1), .v_mcin(b1_mcin));
     jtmonacogp_snd_d6bank #(.NO(2)) u_bank2(
-        .clk(clk), .rst(rst), .start(go), .cv(p_cv2), .r6(r6_s),
+        .clk(clk), .rst(rst), .r109(2'd0), .start(go), .cv(p_cv2), .r6(r6_s),
         .mco(m2), .svp(svp2), .done(d_b2),
         .v_o1(v_o1b), .v_o2(b2_o2), .v_o3(b2_o3), .v_con(v_con2), .v_mcin(b2_mcin));
     jtmonacogp_snd_d7car u_car1(

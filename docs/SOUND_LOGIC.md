@@ -398,7 +398,7 @@ hardly modulated. Car 2's identical stage (R81 3.3K) is modulated deeply,
 and so are the board clips and the Saturn remake's recordings. Car 1 with
 3.3K matches the board clips' lines within about 2 %. The scan does not
 support 3.3K, so the default stays as drawn. `jtmonacogp_snd_d67`'s
-parameter `R109` (build macro `MONACOGP_R109`) selects 0 = 330 Ω, 1 = 3.3K
+input `r109` (the OSD's "Passing car R109") selects 0 = 330 Ω, 1 = 3.3K
 or 2 = 33K (Monza's redraw); the models take `r109` the same way, and the
 tests run option 1 against its twin as well.
 

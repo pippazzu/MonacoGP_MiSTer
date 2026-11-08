@@ -42,7 +42,7 @@ module tb_sound;
     wire sample, my_car_on, shift_a, mute, explo_t, skid_on, alarm;
     jtmonacogp_sound dut(
         .clk(clk),.rst(rst),.acce(acce),.s_acc1_n(s_acc1_n),.coin_in_n(coin_in_n),
-        .game_n(game_n),.shift(shift),.nonroad_slip_n(nonroad_slip_n),.excp(excp),.explo_loud(1'b0),
+        .game_n(game_n),.shift(shift),.nonroad_slip_n(nonroad_slip_n),.excp(excp),.explo_loud(1'b0),.r109(2'd0),
         .f_sound_n(f_sound_n),.rescue_cp_n(rescue_cp_n),.back_mix(back_mix),.slip_n(slip_n),
         .hiscore_n(hiscore_n),.mute_in(mute_in),.prom_addr_d5(prom_a),.prom_data_d5(prom_q),
         .alarm(alarm),.snd(snd),.snd_b(snd_b),.sample(sample),.my_car_on(my_car_on),.shift_a(shift_a),.mute(mute),
