@@ -10,7 +10,7 @@ Extract the latest [release package](https://github.com/pippazzu/MonacoGP_MiSTer
 
 ## Pro Monaco GP
 
-Pro adds a scrolling attract display, overtaking bonuses and the +200 graphic, scores above 9999, and SUPER RACER SCORE. Hold Y to see the panel: the top bar has 9 green and 5 red lamps; the bottom bar has 14 red bonus lamps. Cars 1–14 light successive top lamps, 15 keeps the bar full, and car 16 clears it and adds a stored bonus. A crash clears the car bar while retaining stored bonuses for the payout.
+Pro adds a scrolling attract display, overtaking bonuses and the +200 graphic, and scores above 9999. Hold Y to see the panel: the top bar has 9 green and 5 red lamps; the bottom bar has 14 red bonus lamps. Cars 1–14 light successive top lamps, 15 keeps the bar full, and car 16 clears it and adds a stored bonus. A crash clears the car bar while retaining stored bonuses for the payout.
 
 The Pro-only DIP entry **RAM reset (board switch)** clears score memory while On. Set it back to Off after clearing.
 

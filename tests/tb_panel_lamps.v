@@ -28,11 +28,11 @@ module tb_panel_lamps;
     wire [11:0] rgb;
     jtmonacogp_panel u_panel(.clk(clk),.rst(rst),.pxl_cen(1'b0),.scan(3'd0),.row_on(8'd0),.seg(28'd0),
         .x(x),.y(y),.show(1'b1),.pro(1'b1),.cars_lamps(g26),.bonus_lamps(gd),
-        .tenk(1'b0),.srs(16'd0),.srs_flag(1'b0),
+        .tenk(1'b0),
         .rgb_in(12'h5a5),.rgb_out(rgb));
 
-    // with pro = 1 the box is one line (19) taller and the lamp box sits below it
-    localparam integer U0 = 64, W0 = 88, BW = 112, BH = 178 + 19, LW0 = W0 + BH, LBH = 50;
+    // the lamp box sits right below the nine-line box
+    localparam integer U0 = 64, W0 = 88, BW = 112, BH = 178, LW0 = W0 + BH, LBH = 50;
     localparam integer LU = 11, LP = 6, GREEN = 9, NL = 14;
 
     // ---------------------------------------------------- the PROM file
