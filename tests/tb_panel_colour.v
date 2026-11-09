@@ -27,15 +27,15 @@ module tb_panel_colour;
     jtmonacogp_panel uut(.clk(clk),.rst(rst),.pxl_cen(pxl_cen),.scan(scan),.row_on(row_on),.seg(seg),
         .x(x),.y(y),.show(show),.pro(pro),.cars_lamps(cars_lamps),.bonus_lamps(bonus_lamps),
         // sheet I/K's Pro additions held off; their colours are in tb_panel.v
-        .tenk(1'b0),.srs(16'd0),.srs_flag(1'b0),
+        .tenk(1'b0),
         .rgb_in(bg),.rgb_out(rgb));
 
     // the layout of jtmonacogp_panel.v, upright: u = 239 - y, w = x
     localparam integer U0 = 64, W0 = 88, BW = 112, BH = 178, LH = 19, DU = 56, DP = 12;
     // the Pro lamp box: just below, 50 lines; lamps 5 wide at a pitch of 6
     // from column 11, rows 16..21 (top bar) and 37..42 (bottom bar)
-    // the lamp box sits below the box, which is one line taller with pro = 1
-    localparam integer LW0 = W0 + BH + 19, LBH = 50, LU = 11, LP = 6, GREEN = 9, NL = 14;
+    // the lamp box sits right below the box, which has nine lines with either board
+    localparam integer LW0 = W0 + BH, LBH = 50, LU = 11, LP = 6, GREEN = 9, NL = 14;
     reg [27:0] model [0:7];             // segments captured per row
     integer seed = 32'h52454431, k, s, xi, yi, u, w, bu, bw, ln, lw, pos, su, checked = 0;
     integer n_black = 0, n_red = 0, n_cap = 0, segs_lit = 0, segs_dark = 0;
@@ -48,7 +48,7 @@ module tb_panel_colour;
             for (yi = 0; yi < 240; yi = yi + 1) begin
                 x = xi; y = yi; #1;
                 u = 239 - yi; w = xi; bu = u - U0; bw = w - W0;
-                in_box = show && u >= U0 && u < U0 + BW && w >= W0 && w < W0 + (pro ? BH + 19 : BH);
+                in_box = show && u >= U0 && u < U0 + BW && w >= W0 && w < W0 + BH;
                 in_lbox = show && pro && u >= U0 && u < U0 + BW && w >= LW0 && w < LW0 + LBH;
                 if (in_lbox) begin
                     lbw = w - LW0; lrow = lbw >= 27; lrw = lrow ? lbw - 21 : lbw;

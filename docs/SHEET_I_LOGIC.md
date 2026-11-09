@@ -159,9 +159,10 @@ picture: 1ST..5TH, SCORE, OF (人中, players to date),
 RANK (位) and TIME, as seven-segment digits in a black box: lit segments
 in the game's full red (12'hf00, that of GAME OVER and +200), unlit
 segments black, so the panel adds no colour the game does not show. With
-pro = 1 the Pro board's SUPER RACER SCORE digits and its two lamps (YOUR
-SCORE 10000POINT, TODAY'S HIGH SCORE 10000PT.) follow the same rule: 12'hf00
-lit, black unlit. It keeps each row as sheet J's outputs show it during that row's scan, so
+pro = 1 the Pro board's YOUR SCORE 10000POINT lamp follows the same rule:
+12'hf00 lit, black unlit. The Pro cabinet's SUPER RACER SCORE display and
+its TODAY'S HIGH SCORE 10000PT. lamp are kept by sheet K's logic but not
+drawn (Aldo, 8 November). It keeps each row as sheet J's outputs show it during that row's scan, so
 the flashing row blinks as on the panel. The row captions are the panel's
 printing, not drawn by the board. It is shown only while button 3
 (Scoreboard, Y by default) is held, in play or between games, and at no other

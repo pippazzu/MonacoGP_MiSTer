@@ -719,7 +719,7 @@ module jtmonacogp_game #(
         jtmonacogp_panel u_panel(
             .clk(clk),.rst(rst),.pxl_cen(pxl_cen),.scan(j_scan),.row_on(j_row_on),.seg(j_seg),
             .x(x),.y(y),.show(show_panel && game_view),
-            .pro(pro),.tenk(i_tenk),.srs(k_srs),.srs_flag(k_srs_flag),
+            .pro(pro),.tenk(i_tenk),
             .cars_lamps(lamp_g26),.bonus_lamps(lamp_gd),
             .rgb_in(hud_rgb),.rgb_out(panel_rgb));
     end else begin : g_nopanel

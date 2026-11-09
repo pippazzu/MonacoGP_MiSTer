@@ -30,24 +30,18 @@
 //   TIME   dd     (timer display)
 // The row names are the panel's printed captions, not drawn by the board.
 //
-// Pro Monaco GP (pro = 1) adds two lamps and a fourth display of the
-// cabinet (pro/docs/trace/SHEET_I_TRACE.md and SHEET_K_TRACE.md), drawn as
-//   SCORE#dddd    # = YOUR SCORE 10000POINT LAMP (sheet I's 56, pad G25)
-//   ...
-//   SUPER#dddd    SUPER RACER SCORE (sheet K's 43/49/57, S4..S1), and
-//                 # = TODAY'S HIGH SCORE 10000PT. lamp (FLAG, pad Ge)
-// The box grows by one line. The SUPER RACER SCORE digits are taken from
-// the latches, not from sheet K's multiplexed display drive (its digit
-// selects come from sheet J, not traced on Pro), and are lit while FLAG is
-// set, as FLAG enables that display. Its 9374's segment table was not
-// available (trace K-U2): the 7448 shapes of jtmonacogp_leds.v stand in.
-// The same colours as the rest of the panel: the digits' lit segments and
-// a lit lamp are 12'hf00, unlit ones the box's black.
-// With pro = 0 the panel is unchanged.
+// Pro Monaco GP (pro = 1) adds a lamp (sheet I's 56, pad G25), drawn in the
+// caption's sixth place of SCORE:
+//   SCORE#dddd    # = YOUR SCORE 10000POINT LAMP
+// in the game's full red 12'hf00 when lit, the box's black when not.
+// The cabinet's fourth display, SUPER RACER SCORE (sheet K's 43/49/57,
+// jtmonacogp_ranks.v), and its TODAY'S HIGH SCORE 10000PT. lamp are not
+// drawn: the panel keeps the original box's nine lines (Aldo, 2026-11-08).
+// With pro = 0 the panel is unchanged.
 //
 // Pro Monaco GP (pro = 1) also adds the bonus lamp panel (sheet I's lamp unit
 // behind PR-01/PR-02, jtmonacogp_lamps.v) in a second black box just below
-// the (taller) panel box:
+// the panel box:
 //   OVERTAKEN        "NUMBER OF CARS SUCCESSIVELY OVERTAKEN"
 //   oooooooooooooo   14 lamps, lamp 1 on the left; 1..9 green, 10..14 red
 //   BONUS X200       "BONUS POINTS (x200 PT.)"
@@ -69,8 +63,6 @@ module jtmonacogp_panel(
     // Pro board; ignored while pro = 0
     input             pro,            // 1: Pro Monaco GP board
     input             tenk,           // YOUR SCORE 10000POINT LAMP
-    input      [15:0] srs,            // SUPER RACER SCORE {S4 .. S1}
-    input             srs_flag,       // TODAY'S HIGH SCORE 10000PT. lamp
     input      [14:0] cars_lamps,     // lamp box, top bar: bit 0 = lamp 1 (leftmost)
     input      [14:0] bonus_lamps,    // lamp box, bottom bar: bit 0 = lamp 1
     input      [11:0] rgb_in,
@@ -91,17 +83,16 @@ module jtmonacogp_panel(
     localparam [8:0] LH = 9'd19;                 // line pitch
     localparam [8:0] DU = 9'd56;                 // first digit column, from U0
     localparam [8:0] DP = 9'd12;                 // digit pitch
-    wire [8:0] bh = pro ? BH + LH : BH;          // Pro: one more line
-    wire in_box = show && u >= U0 && u < U0 + BW && w >= W0 && w < W0 + bh;
+    wire in_box = show && u >= U0 && u < U0 + BW && w >= W0 && w < W0 + BH;
     wire [8:0] bu = u - U0, bw = w - W0;
-    // line 0..8 (Pro: 0..9) and the position within it (8 px margin at the top)
+    // line 0..8 and the position within it (8 px margin at the top)
     reg [3:0] line;
     reg [8:0] lw;
     integer j;
     always @* begin
         line = 4'd15; lw = 9'd0;
-        for (j = 0; j < 10; j = j + 1)
-            if ((j < 9 || pro) && bw >= 9'd8 + LH*j[8:0] && bw < 9'd8 + LH*j[8:0] + LH) begin
+        for (j = 0; j < 9; j = j + 1)
+            if (bw >= 9'd8 + LH*j[8:0] && bw < 9'd8 + LH*j[8:0] + LH) begin
                 line = j[3:0]; lw = bw - 9'd8 - LH*j[8:0];
             end
     end
@@ -112,22 +103,11 @@ module jtmonacogp_panel(
         4'd0: cap = "1ST   "; 4'd1: cap = "2ND   "; 4'd2: cap = "3RD   ";
         4'd3: cap = "4TH   "; 4'd4: cap = "5TH   "; 4'd5: cap = "SCORE ";
         4'd6: cap = "OF    "; 4'd7: cap = "RANK  "; 4'd8: cap = "TIME  ";
-        4'd9: cap = "SUPER ";
         default: cap = "      ";
     endcase
-    // Pro: the lamps, in the caption's sixth place of SCORE and SUPER
-    wire in_lamp = pro && (line == 4'd5 || line == 4'd9) &&
+    // Pro: the 10,000-point lamp, in the caption's sixth place of SCORE
+    wire in_lamp = pro && line == 4'd5 &&
                    bu >= 9'd49 && bu < 9'd55 && lw >= 9'd6 && lw < 9'd13;
-    wire lamp_on = line == 4'd5 ? tenk : srs_flag;
-    // 7448 outputs a..g (bit 0 = a) for 0..9, standing in for the 9374
-    function [6:0] seg7(input [3:0] v);
-        case (v)
-        4'd0: seg7 = 7'b0111111;  4'd1: seg7 = 7'b0000110;  4'd2: seg7 = 7'b1011011;
-        4'd3: seg7 = 7'b1001111;  4'd4: seg7 = 7'b1100110;  4'd5: seg7 = 7'b1101101;
-        4'd6: seg7 = 7'b1111100;  4'd7: seg7 = 7'b0000111;  4'd8: seg7 = 7'b1111111;
-        4'd9: seg7 = 7'b1100111;  default: seg7 = 7'b0000000;
-        endcase
-    endfunction
     wire       in_cap = bu >= 9'd8 && bu < 9'd8 + 9'd48 && lw >= 9'd6 && lw < 9'd13 && line != 4'd15;
     wire [8:0] cu = bu - 9'd8;
     wire [2:0] ci = cu[8:3];
@@ -178,16 +158,13 @@ module jtmonacogp_panel(
                 present = pos >= 2'd2;
                 segs = pos == 2'd2 ? lit[28*6 +: 7] : lit[28*7 +: 7];
             end
-            4'd9: begin                                  // Pro: S4 S3 S2 S1
-                present = 1; segs = srs_flag ? seg7(srs[4*(3-pos) +: 4]) : 7'd0;
-            end
             default: ;
         endcase
     end
     wire on_seg  = in_dig && present && |(at & segs);
 
     // ---------------------------------------------------- Pro: lamp box
-    wire       [8:0] lw0 = W0 + bh;              // just below the box (one line lower with pro)
+    wire       [8:0] lw0 = W0 + BH;              // just below the box
     localparam [8:0] LBH = 9'd50;                // its height
     localparam [8:0] LU  = 9'd11;                // lamp 1's first column, from U0
     localparam [8:0] LP  = 9'd6;                 // lamp pitch: 5 lit, 1 gap
@@ -217,7 +194,7 @@ module jtmonacogp_panel(
         if (in_lbox) rgb_out = in_llamp ? lamp_rgb : (in_lcap && lcap_ink) ? 12'hccc : 12'h000;
         else if (!in_box) rgb_out = rgb_in;
         else if (on_seg) rgb_out = 12'hf00;
-        else if (in_lamp && lamp_on) rgb_out = 12'hf00;  // unlit: the box's black
+        else if (in_lamp && tenk) rgb_out = 12'hf00;  // unlit: the box's black
         else if (in_cap && cap_ink) rgb_out = 12'hccc;
         else rgb_out = 12'h000;
     end
