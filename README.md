@@ -4,7 +4,7 @@ Core for SEGA Monaco GP (1979) and Pro Monaco GP (1980), based on the TTL board 
 
 Use ROMs (not included) conforming to monacogp.zip (merged) from MAME's romset.
 
-No known dump of Pro Monaco GP's three extra PROMs exists. They are simple enough, so they have been recreated by hand based on real board recordings: "+200" extra graphics in PR-54 and LED decoding in PR-01/PR-02. 
+No known dump of Pro Monaco GP's three extra PROMs exists. They are simple enough, so they have been recreated by hand based on real board recordings: "+200" extra graphics for PR-54 and LED decoding for PR-01/PR-02. 
 
 ## Settings
 
