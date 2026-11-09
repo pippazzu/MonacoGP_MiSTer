@@ -12,13 +12,16 @@
 // D-7 inputs is jtmonacogp_snd_d7car's), and `svp`, the sum of the three
 // comparators' + inputs (their 51K load on the half-rail).
 // One step per `start`; `done` after about 75 clocks.
-// R109 (bank 1 only) is an option, not a reading: 0 = .33K as drawn (the
-// default), 1 = 3.3K (R81's value), 2 = 33K (Monza's redraw); see
-// docs/sound/OTHER_CAR_COMPARE.md.
+// r109 (bank 1 only) is an option, not a reading: 0 = .33K as drawn (the
+// default), 1 = 3.3K (R81's value), 2 = 33K (Monza's redraw), 3 as 0; see
+// docs/sound/OTHER_CAR_COMPARE.md. It is an input (the OSD's "Passing car
+// R109"), read at each step's CONTROL update, so it may change while the
+// game runs.
 // tests/sound/d67_fixed.py (BankFixed) is the same arithmetic.
-module jtmonacogp_snd_d6bank #(parameter NO = 1, parameter R109 = 0) (
+module jtmonacogp_snd_d6bank #(parameter NO = 1) (
     input                    clk,
     input                    rst,
+    input              [1:0] r109,     // bank 1's R109 option, ignored by bank 2
     input                    start,
     input  signed     [35:0] cv,       // CAR CON, held during the step
     input  signed     [35:0] r6,       // D-6 half-rail, held during the step
@@ -30,10 +33,16 @@ module jtmonacogp_snd_d6bank #(parameter NO = 1, parameter R109 = 0) (
 );
     `include "jtmonacogp_snd_d67.vh"
 
-    localparam signed [26:0] KCON1X_M = R109 == 1 ? KCON1R1_M : R109 == 2 ? KCON1R2_M : KCON1_M;
-    localparam        [5:0]  KCON1X_S = R109 == 1 ? KCON1R1_S : R109 == 2 ? KCON1R2_S : KCON1_S;
-    localparam signed [26:0] KCON_M = NO == 1 ? KCON1X_M : KCON2_M;
-    localparam        [5:0]  KCON_S = NO == 1 ? KCON1X_S : KCON2_S;
+    // the R109 option as taken at the step's start
+    reg        [1:0]  r109_l;
+    // (continuous assignments: bank 2's are constant, which an always @*
+    // would never evaluate in simulation)
+    wire signed [26:0] kcon_m = NO != 1     ? KCON2_M :
+                                r109_l == 1 ? KCON1R1_M :
+                                r109_l == 2 ? KCON1R2_M : KCON1_M;
+    wire        [5:0]  kcon_s = NO != 1     ? KCON2_S :
+                                r109_l == 1 ? KCON1R1_S :
+                                r109_l == 2 ? KCON1R2_S : KCON1_S;
     localparam signed [51:0] CON_I0 = NO == 1 ? CON_I0_1 : CON_I0_2;
 
     localparam [4:0]
@@ -148,7 +157,7 @@ module jtmonacogp_snd_d6bank #(parameter NO = 1, parameter R109 = 0) (
             S_C0: begin ma = cv - vm; mb = ka_m; msh = ka_s; end
             S_C1: begin ma = vm - VCE; mb = kb_m; msh = kb_s; end
             S_C2: begin ma = vo_c; mb = KSCH_M; msh = KSCH_S; end
-            S_K1: begin ma = con; mb = KCON_M; msh = KCON_S; end
+            S_K1: begin ma = con; mb = kcon_m; msh = kcon_s; end
             S_B1: begin tsel = TSOFT; tx = -dneg; ma = q64_s + MC_VB; mb = KTH_M; msh = KTH_S; end
             S_B3: begin ma = tdel; mb = {2'b0, frb}; msh = {1'b0, ffb}; end
             S_B4: begin tsel = TVDROP; tx = vdiff; end
@@ -170,7 +179,7 @@ module jtmonacogp_snd_d6bank #(parameter NO = 1, parameter R109 = 0) (
         done  <= 1'b0;
         mc_go <= 1'b0;
         if (rst) begin
-            st <= S_IDLE; ci <= 2'd0; ph <= 1'b0;
+            st <= S_IDLE; ci <= 2'd0; ph <= 1'b0; r109_l <= 2'd0;
             for (k = 0; k < 3; k = k + 1) begin
                 cap[k] <= 52'sd0;
                 cmp[k] <= VOL_C - CMP_OVER;
@@ -183,7 +192,7 @@ module jtmonacogp_snd_d6bank #(parameter NO = 1, parameter R109 = 0) (
         end else begin
             ph <= 1'b0;
             case (st)
-                S_IDLE: if (start) st <= S_R;
+                S_IDLE: if (start) begin r109_l <= r109; st <= S_R; end
                 S_R: begin r6k <= mres_v; ci <= 2'd0; svp <= 36'sd0; st <= S_C0; end
                 // cells, as on D-3
                 S_C0: begin dl <= mres_s; st <= S_C1; end
