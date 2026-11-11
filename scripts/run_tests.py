@@ -225,6 +225,10 @@ def main():
     # (cars, bonuses) counts multiplexed by V2 into the panel's lamp box.
     cases += [("panel_colour",[hdl/"jtmonacogp_panel.v",hdl/"jtmonacogp_font.v"]),
               ("panel_lamps",[hdl/"jtmonacogp_lamps.v",hdl/"jtmonacogp_panel.v",hdl/"jtmonacogp_font.v"])]
+    # The Pro bonus lamps under the score overlay: 4 (cars, bonuses) pairs
+    # checked pixel by pixel, then the strip absent with pro = 0 and with
+    # the score overlay off.
+    cases += [("hud_lamps",[hdl/"jtmonacogp_hud.v",hdl/"jtmonacogp_font.v"])]
     # Sheet G headlight, explosion and splash paths against the pin-wired
     # reference (its gate models come from sheet_g_reference.v): 40 frames.
     # Sheet I score counter against the pin-wired reference: 3,000,000 pixels

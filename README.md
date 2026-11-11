@@ -8,7 +8,7 @@ No known dump of Pro Monaco GP's three extra PROMs exists. They are simple enoug
 
 ## Settings
 
-- **Display:** the game uses external LEDs for scorekeeping and time: this core reproduces them via an overlay, along with a gear indicator. They can be hidden in the Display menu. Hold Y to display the full LED panel.
+- **Display:** the game uses external LEDs for scorekeeping and time: this core reproduces them via an overlay, along with a gear indicator. On Pro Monaco GP, the overtaken-cars and bonus lamps are shown as two small bars under the score. They can be hidden in the Display menu. Hold Y to display the full LED panel.
 - **Back speaker:** as featured in the sit-down cabinet, selecting "Right channel" plays back siren and passing car sound effects when behind the player.
 - **Passing car R109:** the resistor that sets how much passing car 1's sound is modulated (sound sheet D-6). Default setting is .33K, as per schematic specifications; 3.3K sounds closer to real board recordings.
 - **Sensitivity:** recommended low for dial controls (preferred control method), high or highest for analog stick, high for digital controls.
