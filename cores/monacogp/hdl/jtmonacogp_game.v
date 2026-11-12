@@ -694,11 +694,14 @@ module jtmonacogp_game #(
         assign scoreptr_din = 8'd0, scoreptr_we = 1'b0;
     end endgenerate
 
-    // Score, time and gear overlay (not original circuitry)
+    // Score, time and gear overlay (not original circuitry); on the Pro
+    // board, with the bonus lamps under the score (lamp_g26/lamp_gd below)
     wire [11:0] hud_rgb;
+    wire [14:0] lamp_g26, lamp_gd;
     jtmonacogp_hud u_hud(
         .x(x),.y(y),.show_score(show_score && game_view),.show_gear(show_gear && game_view),
         .t_tens(a_t2),.t_units(a_t1),.score(score),.high_gear(high_gear),
+        .pro(pro),.cars_lamps(lamp_g26),.bonus_lamps(lamp_gd),
         .rgb_in({mux_r, mux_g, mux_b}),.rgb_out(hud_rgb));
     // Pro sheet I: the bonus lamp PROMs PR-01/PR-02 on BONUS A-D and V2.
     // Sheet N registers BONUS A-D one pixel after it captures V2, so V2 is
@@ -708,7 +711,6 @@ module jtmonacogp_game #(
     // panel section is the reconstruction's assumption
     // (pro/reconstruction/LAMP_PROMS.md, assumption 3).
     reg  [1:0]  n_v2_l;
-    wire [14:0] lamp_g26, lamp_gd;
     always @(posedge clk) if (edge3) n_v2_l <= {n_v2_l[0], v[2]};
     jtmonacogp_lamps u_lamps(
         .clk(clk),.rst(rst),.cen(edge3),.v2(n_v2_l[1]),.bonus(n_bonus),
